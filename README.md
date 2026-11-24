@@ -66,6 +66,31 @@ Requires MacPorts on OS X 10.9 with `clang-18`, `cmake`, `ninja`, `macports-libc
 
 ---
 
+## FAQ
+
+**Why are you doing this?**  
+Because it's technically possible — especially in the age of AI, where you can literally run GTA 5 right in your browser. If a browser tab can run Los Santos, a 2013 skeuomorphic cat OS deserves its own local chatbot.
+
+**Wait… how fast does it actually run?**  
+On a small model like `Qwen2.5 0.5B` on a Sandy Bridge i7, you get a genuinely snappy **~18–22 tokens/sec**. On a **30B MoE** running across 15-year-old dual-core DDR3 RAM? Expect a deeply meditative **2–4 tokens/sec** — slow enough to read along comfortably, fast enough to make your friends stare at Activity Monitor in disbelief.
+
+**I have a cheese-grater Mac Pro with 64 GB of cheap ECC DDR3 and a beastly GPU. Can I use OpenCL or Metal?**  
+Nope! OS X Mavericks predates Metal by two years, and `llama.cpp` dropped old OpenCL here — plus your Xeons probably don't have AVX2 either. MavLlama lifts all RAM restrictions for Mac Pros so you *can* cram `Gemma 3 27B` or `Qwen3 30B-A3B Q4_K_M` straight into RAM, and politely reminds you that your CPU will be doing 100% of the heavy lifting while your GPU watches from the sidelines.
+
+**Why won't the chat UI load in Mavericks' built-in Safari?**  
+Because Safari 9 hasn't seen a JavaScript standard since 2015 and immediately faints when it meets a modern web app. MavLlama looks for **Momiji**, **Chromium Legacy**, **Firefox Dynasty**, or **InterWeb** first — and if you haven't installed one yet, it hands you your Mac's LAN URL so your phone, tablet, or main PC can talk to the Mavericks brain instead.
+
+**My Mac App Store is dead and I'm stuck on an older `10.9.x` build (not `13F1911`). Am I screwed?**  
+Not at all. MavLlama doesn't care about the Mac App Store, `13F1911`, AquaProxy, or MacPorts. It ships its own minimal `-march=core2` `curl` + OpenSSL 3 + modern CA certificates inside the `.app` bundle, so even a completely untouched OS X `10.9.0` install from 2013 can talk to HuggingFace over TLS 1.3.
+
+**Will this turn my Core 2 Duo MacBook into a tiny aluminum jet engine?**  
+Oh, 100%. Stick to `SmolLM2 360M` or `Qwen2.5 0.5B` if you'd like your MacBook to stay on the desk instead of achieving low-Earth orbit, and keep Macs Fan Control handy.
+
+**Is this practical for real daily work?**  
+Define "practical." Is it replacing an RTX 5090 rig? No. Does it turn "e-waste" into a whisper-quiet offline LAN AI appliance — and give you the ultimate flex at a coffee shop or on stream? Absolutely.
+
+---
+
 ## Credits
 
 - [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) — inference engine and embedded chat Web UI
