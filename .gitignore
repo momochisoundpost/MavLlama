@@ -1,0 +1,8 @@
+dist/
+build/
+*.o
+*.app/
+*.tar.gz
+*.zip
+.DS_Store
+xcuserdata/

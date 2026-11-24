@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "releaseTag": "v1.0.0",
+  "llamaCppCommit": "66a3b01",
+  "tiers": {
+    "core2": { "url": "https://github.com/momochisoundpost/MavLlama/releases/download/v1.0.0/mavllama-engine-v1.0.0-darwin13-core2.tar.gz", "sha256": "7f62debe7787e169019eff5ac909f9d3ff4d9154dbe6bc7320cbb6b7f9333df6", "sizeBytes": 9309559 },
+    "nehalem": { "url": "https://github.com/momochisoundpost/MavLlama/releases/download/v1.0.0/mavllama-engine-v1.0.0-darwin13-nehalem.tar.gz", "sha256": "4ba4ff85b0e7c6a789c3c55ae5e4b198f529eac1277031b655cc800200da16d7", "sizeBytes": 9308274 },
+    "sandybridge": { "url": "https://github.com/momochisoundpost/MavLlama/releases/download/v1.0.0/mavllama-engine-v1.0.0-darwin13-sandybridge.tar.gz", "sha256": "3850d3a20b129d7663ac9c654d40dd86e4c3510654f30b9aec2968c5ab3aab5f", "sizeBytes": 9432325 },
+    "ivybridge": { "url": "https://github.com/momochisoundpost/MavLlama/releases/download/v1.0.0/mavllama-engine-v1.0.0-darwin13-ivybridge.tar.gz", "sha256": "b303a98f6fcf6c196a2f00cb132bd1693ec83a9deb3882d5f749f1bda4c41d1f", "sizeBytes": 9429034 },
+    "haswell": { "url": "https://github.com/momochisoundpost/MavLlama/releases/download/v1.0.0/mavllama-engine-v1.0.0-darwin13-haswell.tar.gz", "sha256": "284110f262cbb4309dacb62978fbbf90f72a7738818e5a8d0f2a1dae2c9daaba", "sizeBytes": 9494568 }
+  }
+}
