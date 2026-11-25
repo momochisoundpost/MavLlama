@@ -215,7 +215,7 @@ Modeled directly on the user's `VRemind Settings -> About` reference screenshot:
 |        |   MavLlama — So I put local LLMs on Mavericks         |        |
 |        |                 because nobody did it.                |        |
 |        |                                                       |        |
-|        |  Vibecoded by Caitlyn Momochi. Free & open source.    |        |
+|        |          built in public by Caitlyn Momochi           |        |
 |        +-------------------------------------------------------+        |
 |                                                                         |
 |          [ YouTube ]  [ Twitter / X ]  [ GitHub ]  [ Instagram ]        |
