@@ -122,7 +122,7 @@ done
 # 4. Compile MavLlama Objective-C binary (strict OS X 10.9 Core 2 baseline)
 /usr/bin/clang -fobjc-arc -O2 -Wall -Wextra -Werror \
   -mmacosx-version-min=10.9 -march=core2 \
-  -framework Cocoa \
+  -framework Cocoa -framework WebKit \
   "$ROOT_DIR/src/main.m" \
   "$ROOT_DIR/src/AppDelegate.m" \
   "$ROOT_DIR/src/HardwareInspector.m" \
@@ -130,6 +130,7 @@ done
   "$ROOT_DIR/src/ModelCatalog.m" \
   "$ROOT_DIR/src/EngineManager.m" \
   "$ROOT_DIR/src/ServerController.m" \
+  "$ROOT_DIR/src/MarkdownRenderer.m" \
   "$ROOT_DIR/src/MainWindowController.m" \
   -o "$APP_DIR/Contents/MacOS/MavLlama"
 

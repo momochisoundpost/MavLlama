@@ -3,6 +3,7 @@
 #import "../src/HardwareInspector.h"
 #import "../src/ModelCatalog.h"
 #import "../src/DownloadManager.h"
+#import "../src/MarkdownRenderer.h"
 
 static void testCPUTiers(void) {
     // Core 2 Duo (Merom/Penryn: SSSE3/SSE4.1, no SSE4.2, no AVX)
@@ -95,6 +96,55 @@ static void testMediaClassifier(void) {
     NSLog(@"PASS: testMediaClassifier");
 }
 
+static void testMarkdownRenderer(void) {
+    NSString *md =
+        @"# MavLlama 1.1\n"
+        @"[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)\n\n"
+        @"| Tier | SIMD |\n"
+        @"| :--- | :---: |\n"
+        @"| Core 2 | **SSSE3** |\n\n"
+        @"- [x] Added `WebView` markdown viewer\n"
+        @"- [ ] World domination\n\n"
+        @"![Demo](https://example.com/demo.gif)\n\n"
+        @"https://github.com/user-attachments/assets/9999-video\n\n"
+        @"<script>alert('xss')</script>\n";
+
+    NSArray *urls = [MarkdownRenderer extractRemoteMediaURLsFromMarkdown:md];
+    assert(urls.count == 3);
+    assert([urls containsObject:@"https://img.shields.io/badge/license-MIT-blue.svg"]);
+    assert([urls containsObject:@"https://example.com/demo.gif"]);
+    assert([urls containsObject:@"https://github.com/user-attachments/assets/9999-video"]);
+
+    MavResolvedMedia *badge = [[MavResolvedMedia alloc] init];
+    badge.fileURLString = @"file:///tmp/cache/badge.svg";
+    badge.isVideo = NO;
+
+    MavResolvedMedia *vid = [[MavResolvedMedia alloc] init];
+    vid.fileURLString = @"file:///tmp/cache/clip.mp4";
+    vid.isVideo = YES;
+
+    NSDictionary *map = @{
+        @"https://img.shields.io/badge/license-MIT-blue.svg": badge,
+        @"https://github.com/user-attachments/assets/9999-video": vid
+    };
+
+    NSString *html = [MarkdownRenderer renderHTMLFromMarkdown:md releaseTitle:@"MavLlama 1.1" releaseTag:@"v1.1.0" resolvedMedia:map];
+    assert([html rangeOfString:@"<h1>MavLlama 1.1</h1>"].location != NSNotFound);
+    assert([html rangeOfString:@"<table>"].location != NSNotFound);
+    assert([html rangeOfString:@"<td>Core 2</td>"].location != NSNotFound);
+    assert([html rangeOfString:@"<strong>SSSE3</strong>"].location != NSNotFound);
+    assert([html rangeOfString:@"file:///tmp/cache/badge.svg"].location != NSNotFound);
+    assert([html rangeOfString:@"<video controls"].location != NSNotFound);
+    assert([html rangeOfString:@"file:///tmp/cache/clip.mp4"].location != NSNotFound);
+    // Unresolved image must NEVER emit remote https:// <img src=...> in 10.9 WebView
+    assert([html rangeOfString:@"src=\"https://example.com/demo.gif\""].location == NSNotFound);
+    // Untrusted script tags must be escaped
+    assert([html rangeOfString:@"<script>"].location == NSNotFound);
+    assert([html rangeOfString:@"&lt;script&gt;"].location != NSNotFound);
+
+    NSLog(@"PASS: testMarkdownRenderer");
+}
+
 static void testCatalogAndFiltering(NSString *catalogPath) {
     NSData *data = [NSData dataWithContentsOfFile:catalogPath];
     assert(data != nil);
@@ -142,6 +192,7 @@ int main(int argc, const char *argv[]) {
         testMacProAndContext();
         testInferenceNotices();
         testMediaClassifier();
+        testMarkdownRenderer();
         testCatalogAndFiltering(catalogPath);
         NSLog(@"ALL MAVLLAMA CORE TESTS PASSED");
     }
