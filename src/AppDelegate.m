@@ -80,30 +80,22 @@
     NSString *lanURLStr = [NSString stringWithFormat:@"http://%@:%ld", self.hardware.lanIP ?: @"127.0.0.1", (long)self.serverController.port];
     NSURL *url = [NSURL URLWithString:localURLStr];
 
-    self.hardware = [HardwareInspector inspectWithModelsPath:self.serverController.modelsDirectory];
-    if (self.hardware.modernBrowserBundleID) {
-        BOOL ok = [[NSWorkspace sharedWorkspace] openURLs:@[url]
-                                  withAppBundleIdentifier:self.hardware.modernBrowserBundleID
-                                                  options:NSWorkspaceLaunchDefault
-                            additionalEventParamDescriptor:nil
-                                        launchIdentifiers:NULL];
-        if (ok) return;
+    if ([[NSWorkspace sharedWorkspace] openURL:url]) {
+        return;
     }
 
-    NSAlert *alert = [NSAlert alertWithMessageText:@"Modern Mavericks Browser Recommended"
-                                     defaultButton:@"Open Mavericks Forever"
-                                   alternateButton:@"Copy LAN URL"
-                                       otherButton:@"Try Default Browser Anyway"
-                         informativeTextWithFormat:@"Stock Safari 9 on Mavericks cannot render the modern llama.cpp chat UI.\n\nYou can install Momiji or Chromium Legacy from mavericksforever.com, OR open the chat UI from your phone, tablet, or another PC at:\n\n%@", lanURLStr];
+    NSAlert *alert = [NSAlert alertWithMessageText:@"Could Not Open Default Browser"
+                                     defaultButton:@"Copy LAN URL"
+                                   alternateButton:@"Open Mavericks Forever"
+                                       otherButton:@"Dismiss"
+                         informativeTextWithFormat:@"Unable to open %@ in your default browser.\n\nYou can install Aqua WebKit or Momiji from mavericksforever.com, OR open the chat UI from your phone, tablet, or another PC at:\n\n%@", localURLStr, lanURLStr];
     NSInteger choice = [alert runModal];
     if (choice == NSAlertDefaultReturn) {
-        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://mavericksforever.com"]];
-    } else if (choice == NSAlertAlternateReturn) {
         NSPasteboard *pb = [NSPasteboard generalPasteboard];
         [pb declareTypes:@[NSPasteboardTypeString] owner:nil];
         [pb setString:lanURLStr forType:NSPasteboardTypeString];
-    } else {
-        [[NSWorkspace sharedWorkspace] openURL:url];
+    } else if (choice == NSAlertAlternateReturn) {
+        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://mavericksforever.com"]];
     }
 }
 

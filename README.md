@@ -17,7 +17,7 @@ Getting modern local AI (`llama.cpp`) running on OS X 10.9 Mavericks normally me
 - **5 CPU-tier engine builds** — inspects your CPU flags (`sysctl`) and downloads the exact `llama-server` build for your hardware (**Core 2 Duo** through **Haswell**), with SHA-256 verification.
 - **Hardware-aware Model Marketplace** — 16 curated public GGUFs spanning **Gemma 3**, **DeepSeek**, **Qwen**, **Llama 3.2**, **Phi-4**, and **SmolLM2**, filtered by physical RAM (with an override checkbox, custom `.gguf` import, and custom URL downloader).
 - **Mac Pro Unrestricted Mode** — automatically detects `MacPro*` models (`MacPro3,1`–`MacPro6,1`), unlocks the full catalog regardless of RAM filter, and reminds you that Mavericks inference is CPU-only (no AVX2, no OpenCL, no Metal).
-- **Native Mavericks Menu Bar Controller** — monitors server PID, active model, RAM free / AI memory, and download progress; includes **Start / Stop / Restart** and **`Launch the chatbot`** (opens Momiji, Chromium Legacy, Firefox Dynasty, or InterWeb, or shows your LAN URL for phones, tablets, and modern PCs if you haven't installed a modern browser yet).
+- **Native Mavericks Menu Bar Controller** — monitors server PID, active model, RAM free / AI memory, and download progress; includes **Start / Stop / Restart** and **`Launch the chatbot`** (opens the Web UI in your chosen default browser — works great with **Aqua WebKit**, **Momiji**, **Chromium Legacy**, **Firefox Dynasty**, or **InterWeb**, or use your LAN URL from a phone, tablet, or modern PC).
 
 ---
 
@@ -77,8 +77,11 @@ On a small model like `Qwen2.5 0.5B` on a Sandy Bridge i7, you get a genuinely s
 **I have a cheese-grater Mac Pro with 64 GB of cheap ECC DDR3 and a beastly GPU. Can I use OpenCL or Metal?**  
 Nope! OS X Mavericks predates Metal by two years, and `llama.cpp` dropped old OpenCL here — plus your Xeons probably don't have AVX2 either. MavLlama lifts all RAM restrictions for Mac Pros so you *can* cram `Gemma 3 27B` or `Qwen3 30B-A3B Q4_K_M` straight into RAM, and politely reminds you that your CPU will be doing 100% of the heavy lifting while your GPU watches from the sidelines.
 
-**Why won't the chat UI load in Mavericks' built-in Safari?**  
-Because Safari 9 hasn't seen a JavaScript standard since 2015 and immediately faints when it meets a modern web app. MavLlama looks for **Momiji**, **Chromium Legacy**, **Firefox Dynasty**, or **InterWeb** first — and if you haven't installed one yet, it hands you your Mac's LAN URL so your phone, tablet, or main PC can talk to the Mavericks brain instead.
+**Why did `htop` say it's only using ~4.3 GB of RAM when I'm running a 26B model on 16 GB? Is this black magic?**  
+Close — it's Mach VM + `mmap()`. Open **Activity Monitor** and look at **App Memory** vs. **File Cache**: `llama.cpp` memory-maps (`.gguf`) weights straight from disk as clean, file-backed page cache (`~9.4–11.6 GB` in **File Cache**, `0 bytes` swap), while `htop`'s top `Mem` bar only counts wired + anonymous memory. Better yet, OS X Mavericks itself is so ridiculously lean (~1.5 GB wired, zero modern OS bloatware) that you can comfortably run a **26B MoE** model (`gemma-4-26B-A4B`) on a 15-year-old laptop with **16 GB of *dedotated wam*** and zero swap — something that would choke modern OSes to death.
+
+**Why won't the chat UI load in stock Mavericks Safari?**  
+Because unpatched Safari 9 hasn't seen a JavaScript standard since 2015 and immediately faints when it meets a modern web app. Grab **Aqua WebKit** from Mavericks Forever (which backports the Safari 27 engine straight into the classic Safari shell!), or use **Momiji**, **Chromium Legacy**, **Firefox Dynasty**, or **InterWeb** as your default browser. Clicking **`Launch the chatbot`** opens the Web UI right in your chosen default browser — or you can open the LAN URL from your phone, tablet, or main PC instead.
 
 **My Mac App Store is dead and I'm stuck on an older `10.9.x` build (not `13F1911`). Am I screwed?**  
 Not at all. MavLlama doesn't care about the Mac App Store, `13F1911`, AquaProxy, or MacPorts. It ships its own minimal `-march=core2` `curl` + OpenSSL 3 + modern CA certificates inside the `.app` bundle, so even a completely untouched OS X `10.9.0` install from 2013 can talk to HuggingFace over TLS 1.3.
@@ -95,6 +98,6 @@ Define "practical." Is it replacing an RTX 5090 rig? No. Does it turn "e-waste" 
 
 - [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) — inference engine and embedded chat Web UI
 - [MacPorts](https://www.macports.org/) — `clang-18`, `macports-libcxx`, `macports-legacy-support`, and OpenSSL 3 on OS X 10.9
-- [Mavericks Forever](https://mavericksforever.com/) — Momiji and modern Mavericks ecosystem patches
+- [Mavericks Forever](https://mavericksforever.com/) — Aqua WebKit, Momiji, and modern Mavericks ecosystem patches
 
 Licensed under the [MIT License](LICENSE).

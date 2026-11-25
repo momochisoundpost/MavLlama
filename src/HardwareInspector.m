@@ -194,20 +194,17 @@
     info.freeDiskBytes = [self freeDiskBytesForPath:modelsPath];
     info.lanIP = [self detectLanIP];
 
-    NSArray *candidates = @[
-        @[@"org.mozilla.momiji", @"Momiji"],
-        @[@"org.chromium.Chromium", @"Chromium Legacy"],
-        @[@"org.mozilla.firefox", @"Firefox Dynasty / Firefox"],
-        @[@"org.mozilla.interweb", @"InterWeb"]
-    ];
     NSWorkspace *ws = [NSWorkspace sharedWorkspace];
-    for (NSArray *pair in candidates) {
-        NSURL *appURL = [ws URLForApplicationWithBundleIdentifier:pair[0]];
-        if (appURL) {
-            info.modernBrowserBundleID = pair[0];
-            info.modernBrowserName = pair[1];
-            break;
+    NSURL *defaultBrowserURL = [ws URLForApplicationToOpenURL:[NSURL URLWithString:@"http://127.0.0.1"]];
+    if (defaultBrowserURL) {
+        NSBundle *b = [NSBundle bundleWithURL:defaultBrowserURL];
+        NSString *bundleID = [b bundleIdentifier];
+        NSString *name = [[NSFileManager defaultManager] displayNameAtPath:[defaultBrowserURL path]];
+        if (!name || name.length == 0) {
+            name = [[defaultBrowserURL lastPathComponent] stringByDeletingPathExtension];
         }
+        info.modernBrowserBundleID = bundleID;
+        info.modernBrowserName = name;
     }
 
     return info;

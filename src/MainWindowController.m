@@ -356,12 +356,16 @@
                                             [ModelCatalog formatBytes:self.hardware.availableRAMBytes],
                                             [ModelCatalog formatBytes:self.hardware.freeDiskBytes]]];
 
-    if (self.hardware.modernBrowserName) {
-        [self.browserCheckLabel setStringValue:[NSString stringWithFormat:@"[OK] Modern Browser: %@ detected (required for Web UI). LAN URL: http://%@:%ld",
+    if ([self.hardware.modernBrowserBundleID isEqualToString:@"com.apple.Safari"]) {
+        [self.browserCheckLabel setStringValue:[NSString stringWithFormat:@"[OK] Default Browser: Safari (Aqua WebKit supported; unpatched Safari 9 needs Aqua WebKit or Momiji). LAN URL: http://%@:%ld",
+                                                self.hardware.lanIP, (long)self.serverController.port]];
+        [self.mavericksForeverBtn setHidden:NO];
+    } else if (self.hardware.modernBrowserName) {
+        [self.browserCheckLabel setStringValue:[NSString stringWithFormat:@"[OK] Default Browser: %@ (used by Launch the chatbot). LAN URL: http://%@:%ld",
                                                 self.hardware.modernBrowserName, self.hardware.lanIP, (long)self.serverController.port]];
         [self.mavericksForeverBtn setHidden:YES];
     } else {
-        [self.browserCheckLabel setStringValue:[NSString stringWithFormat:@"[Advisory] No modern Mavericks browser found (Momiji / Chromium Legacy). Stock Safari 9 cannot render the Web UI; open LAN URL http://%@:%ld from a tablet/PC or grab Momiji at mavericksforever.com.",
+        [self.browserCheckLabel setStringValue:[NSString stringWithFormat:@"[Advisory] No default browser detected. Install Aqua WebKit or Momiji at mavericksforever.com, or open LAN URL http://%@:%ld.",
                                                 self.hardware.lanIP, (long)self.serverController.port]];
         [self.mavericksForeverBtn setHidden:NO];
     }
