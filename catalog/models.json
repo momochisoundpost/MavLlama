@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-24",
+  "updatedAt": "2026-11-25",
   "models": [
     {
       "id": "smollm2-360m-instruct",
@@ -14,7 +14,7 @@
       "architecture": "dense",
       "paramsTotal": "360M",
       "paramsActive": "360M",
-      "notes": "Ultra-lightweight model that runs briskly even on 4 GB Core 2 Duo MacBooks."
+      "notes": "Ultra-lightweight model that runs briskly even on 2-4 GB Core 2 Duo MacBooks."
     },
     {
       "id": "qwen2.5-0.5b-instruct",
@@ -28,7 +28,21 @@
       "architecture": "dense",
       "paramsTotal": "0.5B",
       "paramsActive": "0.5B",
-      "notes": "Snappy starter (~18-22 tok/s on Sandy Bridge i7); fast for quick chat tests."
+      "notes": "Snappy starter (~18-22 tok/s on Sandy Bridge i7); great for instant chat tests."
+    },
+    {
+      "id": "qwen3.5-0.8b",
+      "name": "Qwen3.5 0.8B",
+      "family": "Qwen",
+      "quant": "Q4_K_M",
+      "filename": "Qwen3.5-0.8B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf",
+      "sizeBytes": 532517120,
+      "minRAMGB": 4,
+      "architecture": "dense",
+      "paramsTotal": "0.8B",
+      "paramsActive": "0.8B",
+      "notes": "Modern tiny Qwen3.5 model for 4 GB+ Core 2 Duo and Core i-series Macs."
     },
     {
       "id": "gemma-3-1b-it",
@@ -73,6 +87,34 @@
       "notes": "Compact DeepSeek-R1 reasoning model with visible chain-of-thought."
     },
     {
+      "id": "qwen3.5-2b",
+      "name": "Qwen3.5 2B",
+      "family": "Qwen",
+      "quant": "Q4_K_M",
+      "filename": "Qwen3.5-2B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
+      "sizeBytes": 1280835840,
+      "minRAMGB": 6,
+      "architecture": "dense",
+      "paramsTotal": "2B",
+      "paramsActive": "2B",
+      "notes": "Fast 2B Qwen3.5 general model for 6-8 GB Mavericks laptops."
+    },
+    {
+      "id": "smollm3-3b",
+      "name": "SmolLM3 3B",
+      "family": "SmolLM",
+      "quant": "Q4_K_M",
+      "filename": "SmolLM3-3B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/SmolLM3-3B-GGUF/resolve/main/SmolLM3-3B-Q4_K_M.gguf",
+      "sizeBytes": 1915306528,
+      "minRAMGB": 8,
+      "architecture": "dense",
+      "paramsTotal": "3B",
+      "paramsActive": "3B",
+      "notes": "HuggingFace's 3B dual-mode chat/reasoning model for 8 GB+ Macs."
+    },
+    {
       "id": "llama-3.2-3b-instruct",
       "name": "Llama 3.2 3B Instruct",
       "family": "Llama",
@@ -84,21 +126,7 @@
       "architecture": "dense",
       "paramsTotal": "3B",
       "paramsActive": "3B",
-      "notes": "Well-rounded general assistant for 8 GB+ Macs."
-    },
-    {
-      "id": "gemma-3-4b-it",
-      "name": "Gemma 3 4B Instruct",
-      "family": "Gemma",
-      "quant": "Q4_K_M",
-      "filename": "gemma-3-4b-it-Q4_K_M.gguf",
-      "url": "https://huggingface.co/unsloth/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf",
-      "sizeBytes": 2489894016,
-      "minRAMGB": 8,
-      "architecture": "dense",
-      "paramsTotal": "4B",
-      "paramsActive": "4B",
-      "notes": "Strong writing and instruction following on 8 GB+ Mavericks machines."
+      "notes": "Well-rounded Meta 3B assistant for 8 GB+ Macs."
     },
     {
       "id": "phi-4-mini-instruct",
@@ -115,6 +143,34 @@
       "notes": "Microsoft's 3.8B reasoning/coding mini model for 8 GB+ Macs."
     },
     {
+      "id": "qwen3.5-4b",
+      "name": "Qwen3.5 4B",
+      "family": "Qwen",
+      "quant": "Q4_K_M",
+      "filename": "Qwen3.5-4B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf",
+      "sizeBytes": 2740937888,
+      "minRAMGB": 8,
+      "architecture": "dense",
+      "paramsTotal": "4B",
+      "paramsActive": "4B",
+      "notes": "Strong 4B Qwen3.5 assistant for 8 GB+ Mavericks machines."
+    },
+    {
+      "id": "gemma-4-e2b-it",
+      "name": "Gemma 4 E2B Instruct",
+      "family": "Gemma",
+      "quant": "Q4_K_M",
+      "filename": "gemma-4-E2B-it-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf",
+      "sizeBytes": 3106738272,
+      "minRAMGB": 8,
+      "architecture": "dense",
+      "paramsTotal": "E2B",
+      "paramsActive": "2.3B",
+      "notes": "Compact Gemma 4 edge model; great balance of quality and dual-core CPU speed."
+    },
+    {
       "id": "deepseek-r1-distill-llama-8b",
       "name": "DeepSeek-R1 Distill Llama 8B",
       "family": "DeepSeek",
@@ -129,18 +185,32 @@
       "notes": "Mid-size DeepSeek-R1 reasoning model for 12-16 GB RAM Macs."
     },
     {
-      "id": "qwen3-8b",
-      "name": "Qwen3 8B",
-      "family": "Qwen",
+      "id": "gemma-4-e4b-it",
+      "name": "Gemma 4 E4B Instruct",
+      "family": "Gemma",
       "quant": "Q4_K_M",
-      "filename": "Qwen3-8B-Q4_K_M.gguf",
-      "url": "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
-      "sizeBytes": 5027783488,
+      "filename": "gemma-4-E4B-it-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf",
+      "sizeBytes": 4977171584,
       "minRAMGB": 12,
       "architecture": "dense",
-      "paramsTotal": "8B",
-      "paramsActive": "8B",
-      "notes": "Capable 8B model with strong coding and multilingual output for 12-16 GB RAM."
+      "paramsTotal": "E4B",
+      "paramsActive": "4.5B",
+      "notes": "Gemma 4 E4B delivers strong responses on 12-16 GB Macs with snappy token generation."
+    },
+    {
+      "id": "qwen3.5-9b",
+      "name": "Qwen3.5 9B",
+      "family": "Qwen",
+      "quant": "Q4_K_M",
+      "filename": "Qwen3.5-9B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
+      "sizeBytes": 5680522464,
+      "minRAMGB": 12,
+      "architecture": "dense",
+      "paramsTotal": "9B",
+      "paramsActive": "9B",
+      "notes": "Capable 9B Qwen3.5 model with strong coding and reasoning for 12-16 GB RAM."
     },
     {
       "id": "gemma-3-12b-it",
@@ -168,7 +238,35 @@
       "architecture": "reasoning",
       "paramsTotal": "14B",
       "paramsActive": "14B",
-      "notes": "Heavy 14B reasoning model for 16 GB+ Macs (expect ~1-2 tok/s on dual-core CPUs)."
+      "notes": "Heavy 14B reasoning model for 16 GB+ Macs (~1-2 tok/s on dual-core CPUs)."
+    },
+    {
+      "id": "gemma-4-26b-a4b-it-ud-iq2-m",
+      "name": "Gemma 4 26B-A4B Instruct (MoE, UD-IQ2_M)",
+      "family": "Gemma",
+      "quant": "UD-IQ2_M",
+      "filename": "gemma-4-26B-A4B-it-UD-IQ2_M.gguf",
+      "url": "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-IQ2_M.gguf",
+      "sizeBytes": 10014755296,
+      "minRAMGB": 16,
+      "architecture": "moe",
+      "paramsTotal": "26B",
+      "paramsActive": "4B",
+      "notes": "26B total / 4B active Gemma 4 MoE: fits 16 GB RAM cleanly and runs great on dual-core CPUs (prompt eval is slow)."
+    },
+    {
+      "id": "qwen3-30b-a3b-instruct-ud-iq2-xxs",
+      "name": "Qwen3 30B-A3B Instruct (MoE, UD-IQ2_XXS)",
+      "family": "Qwen",
+      "quant": "UD-IQ2_XXS",
+      "filename": "Qwen3-30B-A3B-Instruct-2507-UD-IQ2_XXS.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF/resolve/main/Qwen3-30B-A3B-Instruct-2507-UD-IQ2_XXS.gguf",
+      "sizeBytes": 10341814688,
+      "minRAMGB": 16,
+      "architecture": "moe",
+      "paramsTotal": "30B",
+      "paramsActive": "3B",
+      "notes": "30B total / 3B active MoE: fits 16 GB Mavericks Macs with zero swap (~2-4 tok/s)."
     },
     {
       "id": "deepseek-v2-lite-chat",
@@ -185,46 +283,130 @@
       "notes": "Mixture-of-Experts (15.7B total / 2.4B active): fits in 16 GB RAM at ~2.4B speed."
     },
     {
-      "id": "qwen3-30b-a3b-instruct-ud-iq2-xxs",
-      "name": "Qwen3 30B-A3B Instruct (MoE)",
+      "id": "qwen3-coder-30b-a3b-ud-iq2-m",
+      "name": "Qwen3-Coder 30B-A3B Instruct (MoE, UD-IQ2_M)",
       "family": "Qwen",
-      "quant": "UD-IQ2_XXS",
-      "filename": "Qwen3-30B-A3B-Instruct-2507-UD-IQ2_XXS.gguf",
-      "url": "https://huggingface.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF/resolve/main/Qwen3-30B-A3B-Instruct-2507-UD-IQ2_XXS.gguf",
-      "sizeBytes": 10341814688,
+      "quant": "UD-IQ2_M",
+      "filename": "Qwen3-Coder-30B-A3B-Instruct-UD-IQ2_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-UD-IQ2_M.gguf",
+      "sizeBytes": 10837007520,
       "minRAMGB": 16,
       "architecture": "moe",
       "paramsTotal": "30B",
       "paramsActive": "3B",
-      "notes": "30B total / 3B active MoE: fits 16 GB Mavericks Macs with zero swap (~2-4 tok/s)."
+      "notes": "Coding-focused 30B / 3B active MoE squeezed into 16 GB RAM."
     },
     {
-      "id": "gemma-3-27b-it",
-      "name": "Gemma 3 27B Instruct",
-      "family": "Gemma",
+      "id": "qwen3.5-27b",
+      "name": "Qwen3.5 27B",
+      "family": "Qwen",
       "quant": "Q4_K_M",
-      "filename": "gemma-3-27b-it-Q4_K_M.gguf",
-      "url": "https://huggingface.co/unsloth/gemma-3-27b-it-GGUF/resolve/main/gemma-3-27b-it-Q4_K_M.gguf",
-      "sizeBytes": 16546688736,
+      "filename": "Qwen3.5-27B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf",
+      "sizeBytes": 16740812704,
       "minRAMGB": 24,
       "architecture": "dense",
       "paramsTotal": "27B",
       "paramsActive": "27B",
-      "notes": "Flagship 27B Gemma 3 for 24-64 GB Mac Pros (CPU-only; patience required!)."
+      "notes": "Heavyweight 27B dense Qwen3.5 for 24-32 GB+ iMacs and Mac Pros."
     },
     {
-      "id": "qwen3-30b-a3b-instruct-q4-k-m",
-      "name": "Qwen3 30B-A3B Instruct (MoE, Q4_K_M)",
+      "id": "gemma-4-26b-a4b-it-q4-k-m",
+      "name": "Gemma 4 26B-A4B Instruct (MoE, Q4_K_M)",
+      "family": "Gemma",
+      "quant": "UD-Q4_K_M",
+      "filename": "gemma-4-26B-A4B-it-UD-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf",
+      "sizeBytes": 16947541728,
+      "minRAMGB": 24,
+      "architecture": "moe",
+      "paramsTotal": "26B",
+      "paramsActive": "4B",
+      "notes": "Full 4-bit Gemma 4 26B-A4B MoE for 24-32 GB+ Macs and Mac Pros."
+    },
+    {
+      "id": "gemma-4-31b-it-q4-k-m",
+      "name": "Gemma 4 31B Instruct",
+      "family": "Gemma",
+      "quant": "Q4_K_M",
+      "filename": "gemma-4-31B-it-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/gemma-4-31B-it-Q4_K_M.gguf",
+      "sizeBytes": 18323733440,
+      "minRAMGB": 24,
+      "architecture": "dense",
+      "paramsTotal": "31B",
+      "paramsActive": "31B",
+      "notes": "Dense 31B Gemma 4 flagship for 24-64 GB Mac Pros (CPU-only)."
+    },
+    {
+      "id": "qwen3-coder-30b-a3b-q4-k-m",
+      "name": "Qwen3-Coder 30B-A3B Instruct (MoE, Q4_K_M)",
       "family": "Qwen",
       "quant": "Q4_K_M",
-      "filename": "Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf",
-      "url": "https://huggingface.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF/resolve/main/Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf",
-      "sizeBytes": 18556686752,
+      "filename": "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf",
+      "sizeBytes": 18556689568,
       "minRAMGB": 24,
       "architecture": "moe",
       "paramsTotal": "30B",
       "paramsActive": "3B",
-      "notes": "Higher-precision 4-bit 30B MoE for 24+ GB Mac Pros."
+      "notes": "4-bit 30B/3B active coding MoE for 24+ GB iMacs and Mac Pros."
+    },
+    {
+      "id": "qwen3.5-35b-a3b-q4-k-m",
+      "name": "Qwen3.5 35B-A3B (MoE, Q4_K_M)",
+      "family": "Qwen",
+      "quant": "Q4_K_M",
+      "filename": "Qwen3.5-35B-A3B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-Q4_K_M.gguf",
+      "sizeBytes": 22016023168,
+      "minRAMGB": 32,
+      "architecture": "moe",
+      "paramsTotal": "35B",
+      "paramsActive": "3B",
+      "notes": "35B total / 3B active Qwen3.5 MoE for 32-96 GB Mac Pros."
+    },
+    {
+      "id": "gemma-4-31b-it-q8-0",
+      "name": "Gemma 4 31B Instruct (Q8_0)",
+      "family": "Gemma",
+      "quant": "Q8_0",
+      "filename": "gemma-4-31B-it-Q8_0.gguf",
+      "url": "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/gemma-4-31B-it-Q8_0.gguf",
+      "sizeBytes": 32635677632,
+      "minRAMGB": 48,
+      "architecture": "dense",
+      "paramsTotal": "31B",
+      "paramsActive": "31B",
+      "notes": "Near-lossless 8-bit 31B Gemma 4 for 48-96 GB+ ECC Mac Pros."
+    },
+    {
+      "id": "qwen3.5-35b-a3b-q8-0",
+      "name": "Qwen3.5 35B-A3B (MoE, Q8_0)",
+      "family": "Qwen",
+      "quant": "Q8_0",
+      "filename": "Qwen3.5-35B-A3B-Q8_0.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-Q8_0.gguf",
+      "sizeBytes": 36903139968,
+      "minRAMGB": 48,
+      "architecture": "moe",
+      "paramsTotal": "35B",
+      "paramsActive": "3B",
+      "notes": "Near-lossless 8-bit 35B/3B MoE for 48-96 GB+ Mac Pros."
+    },
+    {
+      "id": "llama-4-scout-17b-16e-ud-iq2-m",
+      "name": "Llama 4 Scout 17B-16E Instruct (109B MoE)",
+      "family": "Llama",
+      "quant": "UD-IQ2_M",
+      "filename": "Llama-4-Scout-17B-16E-Instruct-UD-IQ2_M.gguf",
+      "url": "https://huggingface.co/unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF/resolve/main/Llama-4-Scout-17B-16E-Instruct-UD-IQ2_M.gguf",
+      "sizeBytes": 39078694400,
+      "minRAMGB": 48,
+      "architecture": "moe",
+      "paramsTotal": "109B",
+      "paramsActive": "17B",
+      "notes": "109B total / 17B active MoE — the ultimate 64-96 GB+ Mac Pro RAM flex."
     }
   ]
 }

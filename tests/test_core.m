@@ -52,7 +52,7 @@ static void testCatalogAndFiltering(NSString *catalogPath) {
     NSError *err = nil;
     NSArray *models = [ModelCatalog parseModelsFromData:data error:&err];
     assert(err == nil);
-    assert(models.count == 16);
+    assert(models.count == 29);
 
     for (MavModelEntry *m in models) {
         assert(m.name.length > 0);
@@ -63,22 +63,22 @@ static void testCatalogAndFiltering(NSString *catalogPath) {
 
     // Standard 4 GB Mac only sees models <= 4 GB
     NSArray *filtered4 = [ModelCatalog filterModels:models forRAMGB:4 isMacPro:NO overrideFilter:NO familyFilter:@"All"];
-    assert(filtered4.count == 4);
+    assert(filtered4.count == 5);
     for (MavModelEntry *m in filtered4) {
         assert(m.minRAMGB <= 4);
     }
 
-    // Mac Pro lifts all RAM restrictions even with 16 GB or 4 GB
+    // Mac Pro lifts all RAM restrictions even with 4 GB
     NSArray *macProAll = [ModelCatalog filterModels:models forRAMGB:4 isMacPro:YES overrideFilter:NO familyFilter:@"All"];
-    assert(macProAll.count == 16);
+    assert(macProAll.count == 29);
 
     // Explicit override lifts restrictions
     NSArray *overrideAll = [ModelCatalog filterModels:models forRAMGB:4 isMacPro:NO overrideFilter:YES familyFilter:@"All"];
-    assert(overrideAll.count == 16);
+    assert(overrideAll.count == 29);
 
     // Family filtering
     NSArray *gemma16 = [ModelCatalog filterModels:models forRAMGB:16 isMacPro:NO overrideFilter:NO familyFilter:@"Gemma"];
-    assert(gemma16.count == 3); // 1B, 4B, 12B (27B requires 24 GB)
+    assert(gemma16.count == 5); // 3-1B, 4-E2B, 4-E4B, 3-12B, 4-26B-A4B-IQ2_M
 
     NSArray *deepseekMacPro = [ModelCatalog filterModels:models forRAMGB:16 isMacPro:YES overrideFilter:NO familyFilter:@"DeepSeek"];
     assert(deepseekMacPro.count == 4); // R1-1.5B, R1-8B, R1-14B, V2-Lite MoE
