@@ -83,7 +83,22 @@
     return hex;
 }
 
++ (NSString *)sha256ForString:(NSString *)str {
+    NSData *data = [str dataUsingEncoding:NSUTF8StringEncoding] ?: [NSData data];
+    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256([data bytes], (CC_LONG)[data length], digest);
+    NSMutableString *hex = [NSMutableString stringWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
+    for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) {
+        [hex appendFormat:@"%02x", digest[i]];
+    }
+    return hex;
+}
+
 + (NSData *)fetchDataFromURL:(NSString *)urlString error:(NSError **)outError {
+    return [self fetchDataFromURL:urlString headers:nil error:outError];
+}
+
++ (NSData *)fetchDataFromURL:(NSString *)urlString headers:(NSDictionary *)headers error:(NSError **)outError {
     NSString *curl = [self resolvedCurlPath];
     NSString *ca = [self resolvedCABundlePath];
 
@@ -91,6 +106,16 @@
     if (ca) {
         [args addObject:@"--cacert"];
         [args addObject:ca];
+    }
+    [args addObjectsFromArray:@[@"-A", @"MavLlama/1.1"]];
+    if (headers) {
+        for (NSString *key in headers) {
+            id val = headers[key];
+            if ([key isKindOfClass:[NSString class]] && [val isKindOfClass:[NSString class]]) {
+                [args addObject:@"-H"];
+                [args addObject:[NSString stringWithFormat:@"%@: %@", key, val]];
+            }
+        }
     }
     [args addObjectsFromArray:@[@"-fsSL", @"--max-time", @"15", @"--retry", @"2", urlString]];
 
@@ -127,6 +152,216 @@
         return nil;
     }
     return outData;
+}
+
++ (BOOL)classifyMediaData:(NSData *)headerBytes
+              contentType:(NSString *)contentType
+                urlString:(NSString *)urlString
+                extension:(NSString **)outExt
+                  isVideo:(BOOL *)outIsVideo {
+    NSString *ext = nil;
+    BOOL isVideo = NO;
+
+    NSString *mime = @"";
+    if (contentType && contentType.length > 0) {
+        NSArray *parts = [[contentType lowercaseString] componentsSeparatedByString:@";"];
+        mime = [parts[0] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    }
+
+    if ([mime hasPrefix:@"text/html"] || [mime isEqualToString:@"application/xhtml+xml"]) {
+        return NO;
+    }
+
+    if ([mime isEqualToString:@"video/mp4"]) {
+        ext = @"mp4"; isVideo = YES;
+    } else if ([mime isEqualToString:@"video/x-m4v"]) {
+        ext = @"m4v"; isVideo = YES;
+    } else if ([mime isEqualToString:@"video/quicktime"]) {
+        ext = @"mov"; isVideo = YES;
+    } else if ([mime isEqualToString:@"image/gif"]) {
+        ext = @"gif"; isVideo = NO;
+    } else if ([mime isEqualToString:@"image/svg+xml"]) {
+        ext = @"svg"; isVideo = NO;
+    } else if ([mime isEqualToString:@"image/png"]) {
+        ext = @"png"; isVideo = NO;
+    } else if ([mime isEqualToString:@"image/jpeg"] || [mime isEqualToString:@"image/jpg"]) {
+        ext = @"jpg"; isVideo = NO;
+    } else if ([mime isEqualToString:@"image/webp"]) {
+        ext = @"webp"; isVideo = NO;
+    }
+
+    if (!ext && headerBytes && headerBytes.length > 0) {
+        const uint8_t *b = (const uint8_t *)[headerBytes bytes];
+        NSUInteger len = [headerBytes length];
+        if (len >= 8 && b[4] == 'f' && b[5] == 't' && b[6] == 'y' && b[7] == 'p') {
+            ext = @"mp4"; isVideo = YES;
+        } else if (len >= 6 && (memcmp(b, "GIF87a", 6) == 0 || memcmp(b, "GIF89a", 6) == 0)) {
+            ext = @"gif"; isVideo = NO;
+        } else if (len >= 4 && b[0] == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G') {
+            ext = @"png"; isVideo = NO;
+        } else if (len >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) {
+            ext = @"jpg"; isVideo = NO;
+        } else if (len >= 12 && memcmp(b, "RIFF", 4) == 0 && memcmp(b + 8, "WEBP", 4) == 0) {
+            ext = @"webp"; isVideo = NO;
+        } else {
+            NSUInteger prefixLen = MIN(len, (NSUInteger)256);
+            NSString *prefix = [[NSString alloc] initWithBytes:b length:prefixLen encoding:NSUTF8StringEncoding];
+            NSString *low = [[prefix lowercaseString] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (low) {
+                if ([low rangeOfString:@"<html"].location != NSNotFound || [low rangeOfString:@"<!doctype html"].location != NSNotFound) {
+                    return NO;
+                }
+                if ([low rangeOfString:@"<svg"].location != NSNotFound) {
+                    ext = @"svg"; isVideo = NO;
+                }
+            }
+        }
+    }
+
+    if (!ext && urlString && urlString.length > 0) {
+        NSURL *u = [NSURL URLWithString:urlString];
+        NSString *pathExt = [[u pathExtension] lowercaseString];
+        if ([pathExt isEqualToString:@"mp4"]) {
+            ext = @"mp4"; isVideo = YES;
+        } else if ([pathExt isEqualToString:@"m4v"]) {
+            ext = @"m4v"; isVideo = YES;
+        } else if ([pathExt isEqualToString:@"mov"]) {
+            ext = @"mov"; isVideo = YES;
+        } else if ([pathExt isEqualToString:@"gif"] || [pathExt isEqualToString:@"png"] ||
+                   [pathExt isEqualToString:@"jpg"] || [pathExt isEqualToString:@"svg"] ||
+                   [pathExt isEqualToString:@"webp"]) {
+            ext = pathExt; isVideo = NO;
+        } else if ([pathExt isEqualToString:@"jpeg"]) {
+            ext = @"jpg"; isVideo = NO;
+        }
+    }
+
+    if (!ext) return NO;
+    if (outExt) *outExt = ext;
+    if (outIsVideo) *outIsVideo = isVideo;
+    return YES;
+}
+
++ (NSString *)lastContentTypeFromHeaderData:(NSData *)headerData {
+    if (!headerData || headerData.length == 0) return @"";
+    NSString *raw = [[NSString alloc] initWithData:headerData encoding:NSISOLatin1StringEncoding];
+    if (!raw) return @"";
+    NSString *lastCT = @"";
+    NSArray *lines = [raw componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
+    for (NSString *line in lines) {
+        NSString *trimmed = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if ([[trimmed lowercaseString] hasPrefix:@"content-type:"]) {
+            lastCT = [[trimmed substringFromIndex:13] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+        }
+    }
+    return lastCT;
+}
+
++ (BOOL)cacheMediaURL:(NSString *)urlString
+          inDirectory:(NSString *)cacheDir
+             maxBytes:(uint64_t)maxBytes
+              fileURL:(NSURL **)outFileURL
+              isVideo:(BOOL *)outIsVideo
+                error:(NSError **)outError {
+    if (!urlString || urlString.length == 0 || !cacheDir || cacheDir.length == 0) {
+        return NO;
+    }
+    NSString *lowerURL = [urlString lowercaseString];
+    if (![lowerURL hasPrefix:@"http://"] && ![lowerURL hasPrefix:@"https://"]) {
+        return NO;
+    }
+    NSFileManager *fm = [NSFileManager defaultManager];
+    [fm createDirectoryAtPath:cacheDir withIntermediateDirectories:YES attributes:nil error:nil];
+
+    NSString *hash = [self sha256ForString:urlString];
+    NSArray *knownExts = @[@"mp4", @"m4v", @"mov", @"gif", @"png", @"jpg", @"webp", @"svg"];
+    for (NSString *e in knownExts) {
+        NSString *cand = [cacheDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.%@", hash, e]];
+        NSDictionary *attrs = [fm attributesOfItemAtPath:cand error:nil];
+        if (attrs && [attrs fileSize] > 0) {
+            if (outFileURL) *outFileURL = [NSURL fileURLWithPath:cand];
+            if (outIsVideo) *outIsVideo = ([e isEqualToString:@"mp4"] || [e isEqualToString:@"m4v"] || [e isEqualToString:@"mov"]);
+            return YES;
+        }
+    }
+
+    NSString *nonce = [[NSUUID UUID] UUIDString];
+    NSString *tmpHdr = [cacheDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-%@.hdr", hash, nonce]];
+    NSString *tmpPart = [cacheDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-%@.part", hash, nonce]];
+
+    NSString *curl = [self resolvedCurlPath];
+    NSString *ca = [self resolvedCABundlePath];
+    NSMutableArray *args = [NSMutableArray array];
+    if (ca) {
+        [args addObject:@"--cacert"];
+        [args addObject:ca];
+    }
+    [args addObjectsFromArray:@[
+        @"-A", @"MavLlama/1.1",
+        @"-fsSL",
+        @"--max-time", @"30",
+        @"--retry", @"1",
+        @"--max-filesize", [NSString stringWithFormat:@"%llu", (unsigned long long)(maxBytes > 0 ? maxBytes : (50ULL * 1024ULL * 1024ULL))],
+        @"-D", tmpHdr,
+        @"-o", tmpPart,
+        urlString
+    ]];
+
+    NSTask *task = [[NSTask alloc] init];
+    [task setLaunchPath:curl];
+    [task setArguments:args];
+    [task setStandardOutput:[NSFileHandle fileHandleWithNullDevice]];
+    [task setStandardError:[NSFileHandle fileHandleWithNullDevice]];
+
+    BOOL launched = NO;
+    @try {
+        [task launch];
+        [task waitUntilExit];
+        launched = YES;
+    } @catch (NSException *ex) {
+        if (outError) {
+            *outError = [NSError errorWithDomain:@"MavLlamaMediaCache"
+                                            code:-1
+                                        userInfo:@{NSLocalizedDescriptionKey: [ex reason] ?: @"Failed to run curl"}];
+        }
+    }
+
+    if (!launched || [task terminationStatus] != 0) {
+        [fm removeItemAtPath:tmpHdr error:nil];
+        [fm removeItemAtPath:tmpPart error:nil];
+        return NO;
+    }
+
+    NSData *hdrData = [NSData dataWithContentsOfFile:tmpHdr];
+    NSString *ct = [self lastContentTypeFromHeaderData:hdrData];
+    NSFileHandle *fh = [NSFileHandle fileHandleForReadingAtPath:tmpPart];
+    NSData *magic = fh ? [fh readDataOfLength:256] : nil;
+    [fh closeFile];
+
+    NSString *ext = nil;
+    BOOL isVideo = NO;
+    NSDictionary *partAttrs = [fm attributesOfItemAtPath:tmpPart error:nil];
+    if (!partAttrs || [partAttrs fileSize] == 0 ||
+        ![self classifyMediaData:magic contentType:ct urlString:urlString extension:&ext isVideo:&isVideo]) {
+        [fm removeItemAtPath:tmpHdr error:nil];
+        [fm removeItemAtPath:tmpPart error:nil];
+        return NO;
+    }
+
+    NSString *destPath = [cacheDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.%@", hash, ext]];
+    [fm removeItemAtPath:destPath error:nil];
+    NSError *moveErr = nil;
+    BOOL moved = [fm moveItemAtPath:tmpPart toPath:destPath error:&moveErr];
+    [fm removeItemAtPath:tmpHdr error:nil];
+    if (!moved) {
+        [fm removeItemAtPath:tmpPart error:nil];
+        if (outError) *outError = moveErr;
+        return NO;
+    }
+
+    if (outFileURL) *outFileURL = [NSURL fileURLWithPath:destPath];
+    if (outIsVideo) *outIsVideo = isVideo;
+    return YES;
 }
 
 - (void)pollPartProgress:(NSTimer *)timer {

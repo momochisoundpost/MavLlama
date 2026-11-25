@@ -67,6 +67,34 @@ static void testInferenceNotices(void) {
     NSLog(@"PASS: testInferenceNotices");
 }
 
+static void testMediaClassifier(void) {
+    NSString *ext = nil;
+    BOOL isVideo = NO;
+
+    // Extensionless github user-attachments MP4 (ftyp box at offset 4)
+    const uint8_t mp4Magic[] = {0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm'};
+    NSData *mp4Data = [NSData dataWithBytes:mp4Magic length:sizeof(mp4Magic)];
+    assert([DownloadManager classifyMediaData:mp4Data contentType:@"video/mp4" urlString:@"https://github.com/user-attachments/assets/1234-uuid" extension:&ext isVideo:&isVideo]);
+    assert([ext isEqualToString:@"mp4"] && isVideo == YES);
+
+    // Shields.io SVG badge with no .svg suffix
+    NSData *svgData = [@"<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>" dataUsingEncoding:NSUTF8StringEncoding];
+    assert([DownloadManager classifyMediaData:svgData contentType:@"image/svg+xml;charset=utf-8" urlString:@"https://img.shields.io/badge/Mavericks-10.9-blue" extension:&ext isVideo:&isVideo]);
+    assert([ext isEqualToString:@"svg"] && isVideo == NO);
+
+    // Animated GIF magic bytes even with generic octet-stream content-type
+    const uint8_t gifMagic[] = {'G', 'I', 'F', '8', '9', 'a', 0x01, 0x00, 0x01, 0x00};
+    NSData *gifData = [NSData dataWithBytes:gifMagic length:sizeof(gifMagic)];
+    assert([DownloadManager classifyMediaData:gifData contentType:@"application/octet-stream" urlString:@"https://github.com/user-attachments/assets/abcd" extension:&ext isVideo:&isVideo]);
+    assert([ext isEqualToString:@"gif"] && isVideo == NO);
+
+    // Reject text/html error page even on media URL
+    NSData *htmlData = [@"<html><body>404</body></html>" dataUsingEncoding:NSUTF8StringEncoding];
+    assert([DownloadManager classifyMediaData:htmlData contentType:@"text/html; charset=utf-8" urlString:@"https://github.com/user-attachments/assets/bad" extension:&ext isVideo:&isVideo] == NO);
+
+    NSLog(@"PASS: testMediaClassifier");
+}
+
 static void testCatalogAndFiltering(NSString *catalogPath) {
     NSData *data = [NSData dataWithContentsOfFile:catalogPath];
     assert(data != nil);
@@ -113,6 +141,7 @@ int main(int argc, const char *argv[]) {
         testCPUTiers();
         testMacProAndContext();
         testInferenceNotices();
+        testMediaClassifier();
         testCatalogAndFiltering(catalogPath);
         NSLog(@"ALL MAVLLAMA CORE TESTS PASSED");
     }
