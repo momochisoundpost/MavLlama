@@ -4,6 +4,7 @@
 #import "EngineManager.h"
 #import "ModelCatalog.h"
 #import "ServerController.h"
+#import "UpdateManager.h"
 #import "MainWindowController.h"
 
 @interface AppDelegate ()
@@ -17,6 +18,8 @@
 @property (nonatomic, strong) NSMenuItem *launchChatbotItem;
 @property (nonatomic, strong) NSMenuItem *lanCopyItem;
 @property (nonatomic, strong) NSMenuItem *openWindowItem;
+@property (nonatomic, strong) NSMenuItem *checkUpdatesItem;
+@property (nonatomic, strong) NSMenuItem *aboutItem;
 @property (nonatomic, strong) NSMenuItem *startItem;
 @property (nonatomic, strong) NSMenuItem *stopItem;
 @property (nonatomic, strong) NSMenuItem *restartItem;
@@ -26,6 +29,7 @@
 @property (nonatomic, strong) DownloadManager *downloadManager;
 @property (nonatomic, strong) EngineManager *engineManager;
 @property (nonatomic, strong) ServerController *serverController;
+@property (nonatomic, strong) UpdateManager *updateManager;
 @property (nonatomic, strong) MainWindowController *windowController;
 @property (nonatomic, strong) NSTimer *pollTimer;
 @end
@@ -238,6 +242,16 @@
     [self.windowController showWindowAndSelectTab:-1];
 }
 
+- (IBAction)openUpdatesTabAction:(id)sender {
+    (void)sender;
+    [self.windowController showWindowAndSelectTab:3];
+}
+
+- (IBAction)openAboutTabAction:(id)sender {
+    (void)sender;
+    [self.windowController showWindowAndSelectTab:4];
+}
+
 - (IBAction)startServerAction:(id)sender {
     (void)sender;
     [self.serverController startServerWithHardwareRAMGB:self.hardware.installedRAMGB
@@ -291,18 +305,27 @@
     self.downloadManager = [[DownloadManager alloc] init];
     self.engineManager = [[EngineManager alloc] init];
     self.serverController = [[ServerController alloc] initWithEngineManager:self.engineManager];
+    self.updateManager = [[UpdateManager alloc] init];
     self.hardware = [HardwareInspector inspectWithModelsPath:self.serverController.modelsDirectory];
 
     self.windowController = [[MainWindowController alloc] initWithHardwareInfo:self.hardware
                                                                downloadManager:self.downloadManager
                                                                  engineManager:self.engineManager
-                                                              serverController:self.serverController];
+                                                              serverController:self.serverController
+                                                                 updateManager:self.updateManager];
     __weak AppDelegate *weakSelf = self;
     self.windowController.onLaunchChatbotRequested = ^{
         [weakSelf handleLaunchChatbot];
     };
     self.windowController.onStateUpdated = ^{
         [weakSelf updateMenuUI];
+    };
+    self.windowController.onUpdateCheckCompleted = ^(MavReleaseInfo *latestStable, BOOL updateAvailable) {
+        if (updateAvailable && latestStable) {
+            [weakSelf.checkUpdatesItem setTitle:[NSString stringWithFormat:@"Update Available (%@)...", latestStable.tagName]];
+        } else {
+            [weakSelf.checkUpdatesItem setTitle:@"Check for Updates..."];
+        }
     };
 
     self.statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
@@ -349,6 +372,14 @@
     [self.openWindowItem setTarget:self];
     [self.menu addItem:self.openWindowItem];
 
+    self.checkUpdatesItem = [[NSMenuItem alloc] initWithTitle:@"Check for Updates..." action:@selector(openUpdatesTabAction:) keyEquivalent:@"u"];
+    [self.checkUpdatesItem setTarget:self];
+    [self.menu addItem:self.checkUpdatesItem];
+
+    self.aboutItem = [[NSMenuItem alloc] initWithTitle:@"About MavLlama" action:@selector(openAboutTabAction:) keyEquivalent:@""];
+    [self.aboutItem setTarget:self];
+    [self.menu addItem:self.aboutItem];
+
     [self.menu addItem:[NSMenuItem separatorItem]];
 
     self.startItem = [[NSMenuItem alloc] initWithTitle:@"Start AI Server" action:@selector(startServerAction:) keyEquivalent:@"s"];
@@ -386,6 +417,18 @@
     } else if (self.serverController.autoStart) {
         [self startServerAction:nil];
     }
+
+    [self.updateManager checkForUpdatesForceRefresh:NO
+                                         completion:^(NSArray *releases,
+                                                      MavReleaseInfo *latestStable,
+                                                      BOOL updateAvailable,
+                                                      NSError *error) {
+        (void)releases;
+        (void)error;
+        if (updateAvailable && latestStable) {
+            [weakSelf.checkUpdatesItem setTitle:[NSString stringWithFormat:@"Update Available (%@)...", latestStable.tagName]];
+        }
+    }];
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification {

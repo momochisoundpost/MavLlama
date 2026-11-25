@@ -1,10 +1,48 @@
 #import "MainWindowController.h"
+#import "MarkdownRenderer.h"
+#import <WebKit/WebKit.h>
+
+@interface MavRoundedIconView : NSView
+@property (nonatomic, strong) NSImage *iconImage;
+@end
+
+@implementation MavRoundedIconView
+- (void)drawRect:(NSRect)dirtyRect {
+    (void)dirtyRect;
+    if (!self.iconImage) return;
+    [NSGraphicsContext saveGraphicsState];
+    NSBezierPath *clip = [NSBezierPath bezierPathWithRoundedRect:[self bounds] xRadius:16.0 yRadius:16.0];
+    [clip addClip];
+    [self.iconImage drawInRect:[self bounds]
+                      fromRect:NSZeroRect
+                     operation:NSCompositeSourceOver
+                      fraction:1.0];
+    [NSGraphicsContext restoreGraphicsState];
+}
+@end
+
+@interface MavAboutCardView : NSView
+@end
+
+@implementation MavAboutCardView
+- (void)drawRect:(NSRect)dirtyRect {
+    (void)dirtyRect;
+    NSRect r = NSInsetRect([self bounds], 0.5, 0.5);
+    NSBezierPath *path = [NSBezierPath bezierPathWithRoundedRect:r xRadius:10.0 yRadius:10.0];
+    [[NSColor colorWithCalibratedWhite:0.0 alpha:0.05] setFill];
+    [path fill];
+    [[NSColor colorWithCalibratedWhite:0.0 alpha:0.15] setStroke];
+    [path setLineWidth:1.0];
+    [path stroke];
+}
+@end
 
 @interface MainWindowController ()
 @property (nonatomic, strong) MavHardwareInfo *hardware;
 @property (nonatomic, strong) DownloadManager *downloadManager;
 @property (nonatomic, strong) EngineManager *engineManager;
 @property (nonatomic, strong) ServerController *serverController;
+@property (nonatomic, strong) UpdateManager *updateManager;
 
 @property (nonatomic, strong) NSTabView *tabView;
 
@@ -13,7 +51,7 @@
 @property (nonatomic, strong) NSTextField *cpuCheckLabel;
 @property (nonatomic, strong) NSTextField *ramDiskCheckLabel;
 @property (nonatomic, strong) NSTextField *browserCheckLabel;
-@property (nonatomic, strong) NSTextField *macProBannerLabel;
+@property (nonatomic, strong) NSTextField *inferenceNoticeLabel;
 @property (nonatomic, strong) NSButton *mavericksForeverBtn;
 @property (nonatomic, strong) NSTextField *engineStatusLabel;
 @property (nonatomic, strong) NSProgressIndicator *engineProgress;
@@ -49,6 +87,24 @@
 @property (nonatomic, strong) NSPopUpButton *ctxPopup;
 @property (nonatomic, strong) NSButton *autoStartCheck;
 @property (nonatomic, strong) NSTextField *serverBannerLabel;
+
+// Tab 4: Updates
+@property (nonatomic, strong) NSTextField *updatesStatusLabel;
+@property (nonatomic, strong) NSButton *checkUpdatesBtn;
+@property (nonatomic, strong) NSPopUpButton *releasePopup;
+@property (nonatomic, strong) NSButton *viewOnGitHubBtn;
+@property (nonatomic, strong) WebView *releaseWebView;
+@property (nonatomic, strong) NSProgressIndicator *updateProgress;
+@property (nonatomic, strong) NSTextField *updateProgressLabel;
+@property (nonatomic, strong) NSButton *installUpdateBtn;
+@property (nonatomic, strong) NSArray *releases;
+@property (nonatomic, strong) MavReleaseInfo *latestStableRelease;
+@property (nonatomic, strong) MavReleaseInfo *selectedRelease;
+@property (nonatomic, assign) BOOL hasLoadedReleases;
+@property (nonatomic, assign) BOOL isCheckingReleases;
+
+// Tab 5: About
+@property (nonatomic, strong) NSTextField *aboutStorageLabel;
 @end
 
 @implementation MainWindowController
@@ -56,7 +112,8 @@
 - (instancetype)initWithHardwareInfo:(MavHardwareInfo *)hardware
                      downloadManager:(DownloadManager *)downloadManager
                        engineManager:(EngineManager *)engineManager
-                    serverController:(ServerController *)serverController {
+                    serverController:(ServerController *)serverController
+                       updateManager:(UpdateManager *)updateManager {
     NSRect frame = NSMakeRect(0, 0, 800, 560);
     NSUInteger mask = NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask;
     NSWindow *win = [[NSWindow alloc] initWithContentRect:frame
@@ -74,8 +131,10 @@
         _downloadManager = downloadManager;
         _engineManager = engineManager;
         _serverController = serverController;
+        _updateManager = updateManager ?: [[UpdateManager alloc] init];
         _catalogModels = [ModelCatalog loadEmbeddedCatalog];
         _displayedModels = @[];
+        _releases = @[];
         [self buildUI];
         [self refreshAllViews];
         [self refreshRemoteCatalogInBackground];
@@ -110,11 +169,14 @@
 
     self.tabView = [[NSTabView alloc] initWithFrame:NSMakeRect(14, 12, bounds.size.width - 28, bounds.size.height - 24)];
     [self.tabView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    [self.tabView setDelegate:self];
     [content addSubview:self.tabView];
 
     [self buildSystemTab];
     [self buildMarketplaceTab];
     [self buildSettingsTab];
+    [self buildUpdatesTab];
+    [self buildAboutTab];
 }
 
 - (void)buildSystemTab {
@@ -136,9 +198,8 @@
     self.mavericksForeverBtn = [self makeButton:NSMakeRect(558, 318, 170, 28) title:@"Open Mavericks Forever" action:@selector(openMavericksForever:)];
     [v addSubview:self.mavericksForeverBtn];
 
-    self.macProBannerLabel = [self makeLabel:NSMakeRect(18, 256, 710, 48) text:@"" bold:YES size:11.5];
-    [self.macProBannerLabel setTextColor:[NSColor colorWithCalibratedRed:0.65 green:0.32 blue:0.0 alpha:1.0]];
-    [v addSubview:self.macProBannerLabel];
+    self.inferenceNoticeLabel = [self makeLabel:NSMakeRect(18, 256, 710, 48) text:@"" bold:YES size:11.5];
+    [v addSubview:self.inferenceNoticeLabel];
 
     NSBox *sep = [[NSBox alloc] initWithFrame:NSMakeRect(18, 240, 710, 2)];
     [sep setBoxType:NSBoxSeparator];
@@ -308,14 +369,158 @@
     [self.tabView addTabViewItem:tab];
 }
 
+- (void)buildUpdatesTab {
+    NSTabViewItem *tab = [[NSTabViewItem alloc] initWithIdentifier:@"updates"];
+    [tab setLabel:@"Updates"];
+    NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 750, 480)];
+    [v setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+
+    self.updatesStatusLabel = [self makeLabel:NSMakeRect(18, 444, 560, 20)
+                                         text:[NSString stringWithFormat:@"Installed: v%@ \u2014 Ready to check for updates.", [self.updateManager currentAppVersion]]
+                                         bold:YES
+                                         size:13];
+    [self.updatesStatusLabel setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+    [v addSubview:self.updatesStatusLabel];
+
+    self.checkUpdatesBtn = [self makeButton:NSMakeRect(592, 439, 140, 28) title:@"Check Again" action:@selector(checkUpdatesClicked:)];
+    [self.checkUpdatesBtn setAutoresizingMask:NSViewMinXMargin | NSViewMinYMargin];
+    [v addSubview:self.checkUpdatesBtn];
+
+    NSTextField *relLbl = [self makeLabel:NSMakeRect(18, 408, 60, 18) text:@"Release:" bold:NO size:12];
+    [relLbl setAutoresizingMask:NSViewMaxXMargin | NSViewMinYMargin];
+    [v addSubview:relLbl];
+
+    self.releasePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(80, 403, 502, 26) pullsDown:NO];
+    [self.releasePopup addItemWithTitle:@"Loading GitHub Releases..."];
+    [self.releasePopup setTarget:self];
+    [self.releasePopup setAction:@selector(releaseSelectionChanged:)];
+    [self.releasePopup setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+    [v addSubview:self.releasePopup];
+
+    self.viewOnGitHubBtn = [self makeButton:NSMakeRect(592, 402, 140, 28) title:@"View on GitHub" action:@selector(viewReleaseOnGitHubClicked:)];
+    [self.viewOnGitHubBtn setAutoresizingMask:NSViewMinXMargin | NSViewMinYMargin];
+    [v addSubview:self.viewOnGitHubBtn];
+
+    NSBox *frameBox = [[NSBox alloc] initWithFrame:NSMakeRect(18, 64, 714, 330)];
+    [frameBox setBoxType:NSBoxCustom];
+    [frameBox setBorderType:NSLineBorder];
+    [frameBox setBorderWidth:1.0];
+    [frameBox setBorderColor:[NSColor colorWithCalibratedWhite:0.78 alpha:1.0]];
+    [frameBox setContentViewMargins:NSMakeSize(0, 0)];
+    [frameBox setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+
+    self.releaseWebView = [[WebView alloc] initWithFrame:NSMakeRect(1, 1, 712, 328)];
+    [self.releaseWebView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    [self.releaseWebView setPolicyDelegate:self];
+    [frameBox addSubview:self.releaseWebView];
+    [v addSubview:frameBox];
+
+    self.updateProgress = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(18, 28, 300, 18)];
+    [self.updateProgress setIndeterminate:NO];
+    [self.updateProgress setMinValue:0.0];
+    [self.updateProgress setMaxValue:100.0];
+    [self.updateProgress setHidden:YES];
+    [self.updateProgress setAutoresizingMask:NSViewMaxXMargin | NSViewMaxYMargin];
+    [v addSubview:self.updateProgress];
+
+    self.updateProgressLabel = [self makeLabel:NSMakeRect(326, 26, 175, 18) text:@"" bold:NO size:11.5];
+    [self.updateProgressLabel setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
+    [v addSubview:self.updateProgressLabel];
+
+    self.installUpdateBtn = [self makeButton:NSMakeRect(496, 20, 236, 32) title:@"Checking Releases..." action:@selector(installUpdateClicked:)];
+    [self.installUpdateBtn setEnabled:NO];
+    [self.installUpdateBtn setAutoresizingMask:NSViewMinXMargin | NSViewMaxYMargin];
+    [v addSubview:self.installUpdateBtn];
+
+    [tab setView:v];
+    [self.tabView addTabViewItem:tab];
+    [self loadPlaceholderReleaseNotes];
+}
+
+- (void)buildAboutTab {
+    NSTabViewItem *tab = [[NSTabViewItem alloc] initWithIdentifier:@"about"];
+    [tab setLabel:@"About"];
+    NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 750, 480)];
+    [v setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+
+    NSString *iconPath = [[NSBundle mainBundle] pathForResource:@"llama-icon" ofType:@"png"];
+    NSImage *iconImg = iconPath ? [[NSImage alloc] initWithContentsOfFile:iconPath] : [NSApp applicationIconImage];
+    MavRoundedIconView *iconView = [[MavRoundedIconView alloc] initWithFrame:NSMakeRect(339, 368, 72, 72)];
+    iconView.iconImage = iconImg;
+    [iconView setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin | NSViewMaxYMargin];
+    [v addSubview:iconView];
+
+    NSTextField *titleLbl = [self makeLabel:NSMakeRect(125, 330, 500, 28) text:@"MavLlama" bold:YES size:20];
+    [titleLbl setAlignment:NSCenterTextAlignment];
+    [titleLbl setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin | NSViewMaxYMargin];
+    [v addSubview:titleLbl];
+
+    NSString *verStr = [NSString stringWithFormat:@"Current Version: %@", [self.updateManager currentAppVersion]];
+    NSTextField *verLbl = [self makeLabel:NSMakeRect(125, 306, 500, 20) text:verStr bold:NO size:12.5];
+    [verLbl setAlignment:NSCenterTextAlignment];
+    [verLbl setTextColor:[NSColor colorWithCalibratedWhite:0.42 alpha:1.0]];
+    [verLbl setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin | NSViewMaxYMargin];
+    [v addSubview:verLbl];
+
+    MavAboutCardView *card = [[MavAboutCardView alloc] initWithFrame:NSMakeRect(115, 196, 520, 92)];
+    [card setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin | NSViewMaxYMargin];
+
+    NSTextField *taglineLbl = [self makeLabel:NSMakeRect(16, 44, 488, 36)
+                                         text:@"MavLlama \u2014 So I put local LLMs on Mavericks because nobody did it."
+                                         bold:YES
+                                         size:13];
+    [taglineLbl setAlignment:NSCenterTextAlignment];
+    [card addSubview:taglineLbl];
+
+    NSTextField *creditLbl = [self makeLabel:NSMakeRect(16, 14, 488, 22)
+                                        text:@"built in public by Caitlyn Momochi"
+                                        bold:NO
+                                        size:12];
+    NSFont *italicFont = [[NSFontManager sharedFontManager] convertFont:[NSFont systemFontOfSize:12.0] toHaveTrait:NSItalicFontMask];
+    if (italicFont) [creditLbl setFont:italicFont];
+    [creditLbl setAlignment:NSCenterTextAlignment];
+    [creditLbl setTextColor:[NSColor colorWithCalibratedWhite:0.35 alpha:1.0]];
+    [card addSubview:creditLbl];
+    [v addSubview:card];
+
+    NSButton *ytBtn = [self makeButton:NSMakeRect(125, 142, 116, 32) title:@"YouTube" action:@selector(openSocialYouTube:)];
+    NSButton *xBtn = [self makeButton:NSMakeRect(253, 142, 116, 32) title:@"Twitter / X" action:@selector(openSocialTwitter:)];
+    NSButton *ghBtn = [self makeButton:NSMakeRect(381, 142, 116, 32) title:@"GitHub" action:@selector(openSocialGitHub:)];
+    NSButton *igBtn = [self makeButton:NSMakeRect(509, 142, 116, 32) title:@"Instagram" action:@selector(openSocialInstagram:)];
+    NSArray *socialBtns = @[ytBtn, xBtn, ghBtn, igBtn];
+    for (NSButton *b in socialBtns) {
+        [b setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin | NSViewMaxYMargin];
+        [v addSubview:b];
+    }
+
+    self.aboutStorageLabel = [self makeLabel:NSMakeRect(75, 84, 600, 40) text:@"" bold:NO size:11];
+    [self.aboutStorageLabel setAlignment:NSCenterTextAlignment];
+    [self.aboutStorageLabel setTextColor:[NSColor colorWithCalibratedWhite:0.45 alpha:1.0]];
+    [self.aboutStorageLabel setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin | NSViewMaxYMargin];
+    [v addSubview:self.aboutStorageLabel];
+
+    [tab setView:v];
+    [self.tabView addTabViewItem:tab];
+}
+
 - (void)showWindowAndSelectTab:(NSInteger)tabIndex {
     if (tabIndex >= 0 && tabIndex < [self.tabView numberOfTabViewItems]) {
         [self.tabView selectTabViewItemAtIndex:tabIndex];
+        if (tabIndex == 3 && !self.hasLoadedReleases && !self.isCheckingReleases) {
+            [self checkForUpdatesForce:NO];
+        }
     }
     [self refreshAllViews];
     [self showWindow:nil];
     [[self window] makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
+}
+
+- (void)tabView:(NSTabView *)tabView didSelectTabViewItem:(NSTabViewItem *)tabViewItem {
+    (void)tabView;
+    if ([[tabViewItem identifier] isEqualToString:@"updates"] && !self.hasLoadedReleases && !self.isCheckingReleases) {
+        [self checkForUpdatesForce:NO];
+    }
 }
 
 - (void)refreshRemoteCatalogInBackground {
@@ -370,13 +575,14 @@
         [self.mavericksForeverBtn setHidden:NO];
     }
 
-    if (self.hardware.isMacPro) {
-        [self.macProBannerLabel setStringValue:[NSString stringWithFormat:@"Mac Pro detected (%@) — RAM restrictions lifted! You can download any model. Reminder: inference on OS X Mavericks runs CPU-only without AVX2, without OpenCL acceleration, and without Metal (Mavericks predates Metal), so large models will run slowly.",
-                                                self.hardware.modelIdentifier]];
-        [self.macProBannerLabel setHidden:NO];
-    } else {
-        [self.macProBannerLabel setHidden:YES];
-    }
+    NSString *notice = [HardwareInspector inferenceNoticeForIsMacPro:self.hardware.isMacPro
+                                                        modelIdentifier:self.hardware.modelIdentifier
+                                                                hasAVX2:self.hardware.hasAVX2];
+    [self.inferenceNoticeLabel setStringValue:notice];
+    [self.inferenceNoticeLabel setTextColor:self.hardware.isMacPro
+        ? [NSColor colorWithCalibratedRed:0.65 green:0.32 blue:0.0 alpha:1.0]
+        : [NSColor colorWithCalibratedWhite:0.30 alpha:1.0]];
+    [self.inferenceNoticeLabel setHidden:NO];
 
     // Engine status
     NSString *activeBin = [self.engineManager activeServerBinaryPathWithCustomPath:self.serverController.customEnginePath];
@@ -404,6 +610,17 @@
 
     [self refreshMarketplaceTable];
     [self refreshSettingsViews];
+    [self refreshUpdatesControls];
+    [self refreshAboutViews];
+}
+
+- (void)refreshAboutViews {
+    NSString *appSup = [EngineManager defaultEngineDirectory];
+    NSString *baseSup = [appSup stringByDeletingLastPathComponent];
+    NSString *modelsDir = self.serverController.modelsDirectory ?: [ServerController defaultModelsDirectory];
+    [self.aboutStorageLabel setStringValue:[NSString stringWithFormat:
+                                            @"Engine & settings stored in %@\nModels stored in %@",
+                                            baseSup, modelsDir]];
 }
 
 - (void)refreshMarketplaceTable {
@@ -413,8 +630,9 @@
 
     if (self.hardware.isMacPro) {
         [self.overrideRAMCheck setHidden:YES];
-        [self.marketHeaderLabel setStringValue:[NSString stringWithFormat:@"Mac Pro Unrestricted Mode (%@, %ld GB RAM) — All models unlocked. Note: Mavericks CPU inference has no AVX2, no OpenCL, and no Metal.",
-                                                self.hardware.modelIdentifier, (long)self.hardware.installedRAMGB]];
+        NSString *caps = self.hardware.hasAVX2 ? @"no OpenCL, no Metal" : @"no AVX2, no OpenCL, no Metal";
+        [self.marketHeaderLabel setStringValue:[NSString stringWithFormat:@"Hey Mac Pro (%@, %ld GB RAM) \u2014 All models unlocked! Note: Mavericks inference is CPU-only (%@); Linux yields 10\u201320x the speed.",
+                                                self.hardware.modelIdentifier, (long)self.hardware.installedRAMGB, caps]];
         [self.marketHeaderLabel setTextColor:[NSColor colorWithCalibratedRed:0.65 green:0.32 blue:0.0 alpha:1.0]];
     } else {
         [self.overrideRAMCheck setHidden:NO];
@@ -831,6 +1049,263 @@
     if (self.onLaunchChatbotRequested) {
         self.onLaunchChatbotRequested();
     }
+}
+
+#pragma mark - Updates Tab & WebView
+
+- (void)loadPlaceholderReleaseNotes {
+    NSString *ver = [self.updateManager currentAppVersion];
+    NSString *placeholderMD = [NSString stringWithFormat:
+                               @"# MavLlama v%@\n\nClick **Check Again** to fetch GitHub release notes (supports tables, badges, images/GIFs, and embedded MP4 demos).",
+                               ver];
+    NSString *html = [MarkdownRenderer renderHTMLFromMarkdown:placeholderMD
+                                                 releaseTitle:ver
+                                                   releaseTag:ver
+                                                resolvedMedia:@{}];
+    [[self.releaseWebView mainFrame] loadHTMLString:html baseURL:nil];
+}
+
+- (void)checkForUpdatesForce:(BOOL)force {
+    if (self.isCheckingReleases) return;
+    self.isCheckingReleases = YES;
+    [self.checkUpdatesBtn setEnabled:NO];
+    [self.updatesStatusLabel setStringValue:[NSString stringWithFormat:@"Installed: v%@ \u2014 Checking GitHub Releases...",
+                                             [self.updateManager currentAppVersion]]];
+
+    [self.updateManager checkForUpdatesForceRefresh:force
+                                         completion:^(NSArray *releases,
+                                                      MavReleaseInfo *latestStable,
+                                                      BOOL updateAvailable,
+                                                      NSError *error) {
+        self.isCheckingReleases = NO;
+        [self.checkUpdatesBtn setEnabled:YES];
+
+        if (error || !releases) {
+            [self.updatesStatusLabel setStringValue:[NSString stringWithFormat:@"Installed: v%@ \u2014 Release check failed (%@)",
+                                                     [self.updateManager currentAppVersion],
+                                                     [error localizedDescription] ?: @"network error"]];
+            [self refreshUpdatesControls];
+            return;
+        }
+
+        self.hasLoadedReleases = YES;
+        self.releases = releases;
+        self.latestStableRelease = latestStable;
+
+        if (self.onUpdateCheckCompleted) {
+            self.onUpdateCheckCompleted(latestStable, updateAvailable);
+        }
+
+        [self.releasePopup removeAllItems];
+        NSInteger selectIdx = 0;
+        for (NSUInteger i = 0; i < releases.count; i++) {
+            MavReleaseInfo *r = releases[i];
+            NSString *tagSuffix = @"";
+            if (r == latestStable) {
+                tagSuffix = @" (Latest)";
+            } else if (r.prerelease) {
+                tagSuffix = @" (Pre-release)";
+            }
+            NSString *title = [NSString stringWithFormat:@"%@ \u2014 %@%@", r.tagName, r.name, tagSuffix];
+            [self.releasePopup addItemWithTitle:title];
+            if (r == latestStable) {
+                selectIdx = (NSInteger)i;
+            }
+        }
+        if (releases.count == 0) {
+            [self.releasePopup addItemWithTitle:@"No published GitHub releases yet"];
+            self.selectedRelease = nil;
+        } else {
+            [self.releasePopup selectItemAtIndex:selectIdx];
+            self.selectedRelease = releases[(NSUInteger)selectIdx];
+        }
+
+        NSString *inst = [self.updateManager currentAppVersion];
+        if (updateAvailable && latestStable) {
+            [self.updatesStatusLabel setStringValue:[NSString stringWithFormat:@"Installed: v%@ \u2022 Update Available: %@!",
+                                                     inst, latestStable.tagName]];
+        } else if (latestStable) {
+            [self.updatesStatusLabel setStringValue:[NSString stringWithFormat:@"Installed: v%@ \u2022 Latest: %@ (Up to Date)",
+                                                     inst, latestStable.tagName]];
+        } else {
+            [self.updatesStatusLabel setStringValue:[NSString stringWithFormat:@"Installed: v%@ \u2022 Loaded %lu release(s)",
+                                                     inst, (unsigned long)releases.count]];
+        }
+
+        [self renderSelectedReleaseNotes];
+        [self refreshUpdatesControls];
+    }];
+}
+
+- (void)renderSelectedReleaseNotes {
+    MavReleaseInfo *rel = self.selectedRelease;
+    if (!rel) {
+        [self loadPlaceholderReleaseNotes];
+        return;
+    }
+    [self.updateManager renderRelease:rel
+                          initialHTML:^(NSString *html, NSURL *baseURL) {
+        [[self.releaseWebView mainFrame] loadHTMLString:html baseURL:baseURL];
+    } updatedHTML:^(NSString *html, NSURL *baseURL) {
+        if (self.selectedRelease == rel) {
+            [[self.releaseWebView mainFrame] loadHTMLString:html baseURL:baseURL];
+        }
+    }];
+}
+
+- (void)refreshUpdatesControls {
+    MavReleaseInfo *sel = self.selectedRelease;
+    BOOL dlActive = self.downloadManager.isDownloading;
+
+    [self.viewOnGitHubBtn setEnabled:(sel != nil && sel.htmlURL.length > 0)];
+    [self.checkUpdatesBtn setEnabled:!self.isCheckingReleases];
+
+    if (!sel) {
+        [self.installUpdateBtn setTitle:self.isCheckingReleases ? @"Checking Releases..." : @"No Release Selected"];
+        [self.installUpdateBtn setEnabled:NO];
+        return;
+    }
+    if (!sel.appZipDownloadURL || sel.appZipDownloadURL.length == 0) {
+        [self.installUpdateBtn setTitle:@"No App Bundle in This Release"];
+        [self.installUpdateBtn setEnabled:NO];
+        return;
+    }
+
+    NSComparisonResult cmp = [UpdateManager compareVersion:sel.tagName toVersion:[self.updateManager currentAppVersion]];
+    if (cmp == NSOrderedSame) {
+        [self.installUpdateBtn setTitle:[NSString stringWithFormat:@"Up to Date (%@)", sel.tagName]];
+        [self.installUpdateBtn setEnabled:NO];
+    } else if (sel.prerelease) {
+        [self.installUpdateBtn setTitle:[NSString stringWithFormat:@"Install Pre-release %@ & Relaunch", sel.tagName]];
+        [self.installUpdateBtn setEnabled:!dlActive];
+    } else if (cmp == NSOrderedDescending) {
+        [self.installUpdateBtn setTitle:[NSString stringWithFormat:@"Update to %@ & Relaunch", sel.tagName]];
+        [self.installUpdateBtn setEnabled:!dlActive];
+    } else {
+        [self.installUpdateBtn setTitle:[NSString stringWithFormat:@"Downgrade to %@ & Relaunch", sel.tagName]];
+        [self.installUpdateBtn setEnabled:!dlActive];
+    }
+}
+
+- (IBAction)checkUpdatesClicked:(id)sender {
+    (void)sender;
+    [self checkForUpdatesForce:YES];
+}
+
+- (IBAction)releaseSelectionChanged:(id)sender {
+    (void)sender;
+    NSInteger idx = [self.releasePopup indexOfSelectedItem];
+    if (idx >= 0 && idx < (NSInteger)self.releases.count) {
+        self.selectedRelease = self.releases[(NSUInteger)idx];
+    } else {
+        self.selectedRelease = nil;
+    }
+    [self renderSelectedReleaseNotes];
+    [self refreshUpdatesControls];
+}
+
+- (IBAction)viewReleaseOnGitHubClicked:(id)sender {
+    (void)sender;
+    if (self.selectedRelease && self.selectedRelease.htmlURL.length > 0) {
+        NSURL *u = [NSURL URLWithString:self.selectedRelease.htmlURL];
+        if (u) [[NSWorkspace sharedWorkspace] openURL:u];
+    }
+}
+
+- (IBAction)installUpdateClicked:(id)sender {
+    (void)sender;
+    MavReleaseInfo *rel = self.selectedRelease;
+    if (!rel) return;
+
+    NSComparisonResult cmp = [UpdateManager compareVersion:rel.tagName toVersion:[self.updateManager currentAppVersion]];
+    if (rel.prerelease || cmp == NSOrderedAscending) {
+        NSString *kind = rel.prerelease ? @"pre-release" : @"older version";
+        NSAlert *confirm = [NSAlert alertWithMessageText:[NSString stringWithFormat:@"Install %@ (%@)?", rel.tagName, kind]
+                                           defaultButton:@"Install & Relaunch"
+                                         alternateButton:@"Cancel"
+                                             otherButton:nil
+                               informativeTextWithFormat:@"You are currently running v%@ and selected %@ (%@). Replace MavLlama.app and relaunch?",
+                            [self.updateManager currentAppVersion], rel.tagName, kind];
+        if ([confirm runModal] != NSAlertDefaultReturn) {
+            return;
+        }
+    }
+
+    [self.updateProgress setHidden:NO];
+    [self.updateProgress setDoubleValue:0.0];
+    [self.updateProgressLabel setStringValue:@"Downloading..."];
+    [self.installUpdateBtn setEnabled:NO];
+
+    [self.updateManager installRelease:rel
+                       downloadManager:self.downloadManager
+                      serverController:self.serverController
+                              progress:^(uint64_t dl, uint64_t total) {
+        double pct = total > 0 ? ((double)dl / (double)total) * 100.0 : 0.0;
+        [self.updateProgress setDoubleValue:pct];
+        [self.updateProgressLabel setStringValue:[NSString stringWithFormat:@"%@ / %@",
+                                                  [ModelCatalog formatBytes:dl],
+                                                  total > 0 ? [ModelCatalog formatBytes:total] : @"?"]];
+        if (self.onStateUpdated) self.onStateUpdated();
+    } completion:^(BOOL launchedUpdater, NSString *errorMessage) {
+        [self.updateProgress setHidden:YES];
+        if (!launchedUpdater) {
+            [self.updateProgressLabel setStringValue:errorMessage ?: @"Update failed"];
+            NSAlert *errAlert = [NSAlert alertWithMessageText:@"Update Failed"
+                                                defaultButton:@"OK"
+                                              alternateButton:nil
+                                                  otherButton:nil
+                                    informativeTextWithFormat:@"%@", errorMessage ?: @"Unknown error."];
+            [errAlert runModal];
+        } else {
+            [self.updateProgressLabel setStringValue:@"Restarting MavLlama..."];
+        }
+        [self refreshAllViews];
+        if (self.onStateUpdated) self.onStateUpdated();
+    }];
+}
+
+- (void)webView:(WebView *)webView
+decidePolicyForNavigationAction:(NSDictionary *)actionInformation
+        request:(NSURLRequest *)request
+          frame:(WebFrame *)frame
+decisionListener:(id<WebPolicyDecisionListener>)listener {
+    (void)webView;
+    (void)frame;
+    NSInteger navType = [actionInformation[WebActionNavigationTypeKey] integerValue];
+    NSURL *url = [request URL];
+    NSString *scheme = [[url scheme] lowercaseString];
+    if (navType == WebNavigationTypeLinkClicked && ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) {
+        [[NSWorkspace sharedWorkspace] openURL:url];
+        [listener ignore];
+        return;
+    }
+    if ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"]) {
+        [listener ignore];
+        return;
+    }
+    [listener use];
+}
+
+#pragma mark - About Social Links
+
+- (IBAction)openSocialYouTube:(id)sender {
+    (void)sender;
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://www.youtube.com/@bukancaitlyn"]];
+}
+
+- (IBAction)openSocialTwitter:(id)sender {
+    (void)sender;
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://x.com/Y2Karyl"]];
+}
+
+- (IBAction)openSocialGitHub:(id)sender {
+    (void)sender;
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://github.com/momochisoundpost"]];
+}
+
+- (IBAction)openSocialInstagram:(id)sender {
+    (void)sender;
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://www.instagram.com/bukancaitlyn/"]];
 }
 
 @end
