@@ -60,6 +60,16 @@
     return [[modelIdentifier lowercaseString] hasPrefix:@"macpro"];
 }
 
++ (NSString *)inferenceNoticeForIsMacPro:(BOOL)isMacPro modelIdentifier:(NSString *)modelIdentifier hasAVX2:(BOOL)hasAVX2 {
+    NSString *cpuCaps = hasAVX2 ? @"no OpenCL, no Metal" : @"no AVX2, no OpenCL, no Metal";
+    if (!isMacPro) {
+        return [NSString stringWithFormat:@"Note: Mavericks inference is CPU-only (%@).", cpuCaps];
+    }
+    NSString *ident = (modelIdentifier && modelIdentifier.length > 0) ? modelIdentifier : @"Mac Pro";
+    return [NSString stringWithFormat:@"Hey Mac Pro (%@) \u2014 RAM restrictions lifted! Mavericks inference is CPU-only (%@). Honestly, on this machine you're better off running Linux, which yields 10\u201320x the speed depending on the model used.",
+            ident, cpuCaps];
+}
+
 + (NSInteger)recommendedContextSizeForRAMGB:(NSInteger)ramGB {
     if (ramGB <= 4) return 2048;
     if (ramGB <= 8) return 8192;

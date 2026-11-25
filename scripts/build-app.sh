@@ -4,7 +4,7 @@ set -euo pipefail
 export PATH="/opt/local/bin:/opt/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-RELEASE_TAG="${RELEASE_TAG:-v1.0.0}"
+RELEASE_TAG="${RELEASE_TAG:-v1.1.0}"
 CURL_VERSION="${CURL_VERSION:-8.23.0}"
 CURL_URL="https://curl.se/download/curl-${CURL_VERSION}.tar.gz"
 CURL_BUILD="$ROOT_DIR/build/curl-${CURL_VERSION}"
@@ -72,9 +72,26 @@ mkdir -p \
   "$APP_DIR/Contents/Resources/bin"
 
 cp "$ROOT_DIR/resources/Info.plist" "$APP_DIR/Contents/Info.plist"
+cp "$ROOT_DIR/resources/llama-icon.png" "$APP_DIR/Contents/Resources/llama-icon.png"
 cp "$ROOT_DIR/catalog/models.json" "$APP_DIR/Contents/Resources/models.json"
 cp "$ROOT_DIR/catalog/engine-manifest.json" "$APP_DIR/Contents/Resources/engine-manifest.json"
 cp "/opt/local/share/curl/curl-ca-bundle.crt" "$APP_DIR/Contents/Resources/ca-bundle.crt"
+
+# 2b. Build macOS AppIcon.icns from resources/llama-icon.png
+ICONSET_DIR="$ROOT_DIR/build/AppIcon.iconset"
+rm -rf "$ICONSET_DIR"
+mkdir -p "$ICONSET_DIR"
+/usr/bin/sips -z 16 16     "$ROOT_DIR/resources/llama-icon.png" --out "$ICONSET_DIR/icon_16x16.png" >/dev/null
+/usr/bin/sips -z 32 32     "$ROOT_DIR/resources/llama-icon.png" --out "$ICONSET_DIR/icon_16x16@2x.png" >/dev/null
+/usr/bin/sips -z 32 32     "$ROOT_DIR/resources/llama-icon.png" --out "$ICONSET_DIR/icon_32x32.png" >/dev/null
+/usr/bin/sips -z 64 64     "$ROOT_DIR/resources/llama-icon.png" --out "$ICONSET_DIR/icon_32x32@2x.png" >/dev/null
+/usr/bin/sips -z 128 128   "$ROOT_DIR/resources/llama-icon.png" --out "$ICONSET_DIR/icon_128x128.png" >/dev/null
+/usr/bin/sips -z 256 256   "$ROOT_DIR/resources/llama-icon.png" --out "$ICONSET_DIR/icon_128x128@2x.png" >/dev/null
+/usr/bin/sips -z 256 256   "$ROOT_DIR/resources/llama-icon.png" --out "$ICONSET_DIR/icon_256x256.png" >/dev/null
+/usr/bin/sips -z 512 512   "$ROOT_DIR/resources/llama-icon.png" --out "$ICONSET_DIR/icon_256x256@2x.png" >/dev/null
+/usr/bin/sips -z 512 512   "$ROOT_DIR/resources/llama-icon.png" --out "$ICONSET_DIR/icon_512x512.png" >/dev/null
+/usr/bin/sips -z 1024 1024 "$ROOT_DIR/resources/llama-icon.png" --out "$ICONSET_DIR/icon_512x512@2x.png" >/dev/null
+/usr/bin/iconutil -c icns "$ICONSET_DIR" -o "$APP_DIR/Contents/Resources/AppIcon.icns"
 
 # 3. Bundle minimal curl + OpenSSL 3 + zlib dylibs and rewrite install names
 cp "$CURL_PREFIX/bin/curl" "$APP_DIR/Contents/Resources/bin/curl"

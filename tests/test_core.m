@@ -46,6 +46,27 @@ static void testMacProAndContext(void) {
     NSLog(@"PASS: testMacProAndContext");
 }
 
+static void testInferenceNotices(void) {
+    NSString *sandy = [HardwareInspector inferenceNoticeForIsMacPro:NO modelIdentifier:@"MacBookPro8,1" hasAVX2:NO];
+    assert([sandy isEqualToString:@"Note: Mavericks inference is CPU-only (no AVX2, no OpenCL, no Metal)."]);
+
+    NSString *haswell = [HardwareInspector inferenceNoticeForIsMacPro:NO modelIdentifier:@"MacBookPro11,1" hasAVX2:YES];
+    assert([haswell isEqualToString:@"Note: Mavericks inference is CPU-only (no OpenCL, no Metal)."]);
+
+    NSString *macPro = [HardwareInspector inferenceNoticeForIsMacPro:YES modelIdentifier:@"MacPro5,1" hasAVX2:NO];
+    assert([macPro rangeOfString:@"MacPro5,1"].location != NSNotFound);
+    assert([macPro rangeOfString:@"no AVX2, no OpenCL, no Metal"].location != NSNotFound);
+    assert([macPro rangeOfString:@"Linux"].location != NSNotFound);
+    assert([macPro rangeOfString:@"10–20x"].location != NSNotFound);
+
+    NSString *macProHaswell = [HardwareInspector inferenceNoticeForIsMacPro:YES modelIdentifier:@"MacPro6,1" hasAVX2:YES];
+    assert([macProHaswell rangeOfString:@"MacPro6,1"].location != NSNotFound);
+    assert([macProHaswell rangeOfString:@"no OpenCL, no Metal"].location != NSNotFound);
+    assert([macProHaswell rangeOfString:@"no AVX2"].location == NSNotFound);
+
+    NSLog(@"PASS: testInferenceNotices");
+}
+
 static void testCatalogAndFiltering(NSString *catalogPath) {
     NSData *data = [NSData dataWithContentsOfFile:catalogPath];
     assert(data != nil);
@@ -91,6 +112,7 @@ int main(int argc, const char *argv[]) {
         NSString *catalogPath = argc > 1 ? [NSString stringWithUTF8String:argv[1]] : @"catalog/models.json";
         testCPUTiers();
         testMacProAndContext();
+        testInferenceNotices();
         testCatalogAndFiltering(catalogPath);
         NSLog(@"ALL MAVLLAMA CORE TESTS PASSED");
     }

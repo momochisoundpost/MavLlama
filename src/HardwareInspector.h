@@ -27,6 +27,7 @@
 + (NSString *)cpuTierForFeatures:(NSString *)features leaf7Features:(NSString *)leaf7;
 + (NSString *)displayNameForCPUTier:(NSString *)tier;
 + (BOOL)isMacProModel:(NSString *)modelIdentifier;
++ (NSString *)inferenceNoticeForIsMacPro:(BOOL)isMacPro modelIdentifier:(NSString *)modelIdentifier hasAVX2:(BOOL)hasAVX2;
 + (NSInteger)recommendedContextSizeForRAMGB:(NSInteger)ramGB;
 + (NSString *)osStatusLevelForVersion:(NSString *)productVersion build:(NSString *)buildVersion;
 + (MavHardwareInfo *)inspectWithModelsPath:(NSString *)modelsPath;
