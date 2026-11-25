@@ -4,6 +4,7 @@
 #import "../src/ModelCatalog.h"
 #import "../src/DownloadManager.h"
 #import "../src/MarkdownRenderer.h"
+#import "../src/UpdateManager.h"
 
 static void testCPUTiers(void) {
     // Core 2 Duo (Merom/Penryn: SSSE3/SSE4.1, no SSE4.2, no AVX)
@@ -145,6 +146,48 @@ static void testMarkdownRenderer(void) {
     NSLog(@"PASS: testMarkdownRenderer");
 }
 
+static void testUpdateManagerParsingAndVersions(void) {
+    assert([UpdateManager compareVersion:@"v1.0.0" toVersion:@"1.0.0"] == NSOrderedSame);
+    assert([UpdateManager compareVersion:@"v1.1.0" toVersion:@"1.0.0"] == NSOrderedDescending);
+    assert([UpdateManager compareVersion:@"v1.10.0" toVersion:@"v1.2.0"] == NSOrderedDescending);
+    assert([UpdateManager compareVersion:@"v1.1.0-beta.1" toVersion:@"v1.1.0"] == NSOrderedAscending);
+    assert([UpdateManager compareVersion:@"v1.1.0-beta.2" toVersion:@"v1.1.0-beta.1"] == NSOrderedDescending);
+
+    NSString *sampleJSON =
+        @"["
+        @"  {\"tag_name\":\"v1.2.0-draft\",\"name\":\"Draft\",\"draft\":true,\"prerelease\":false,\"body\":\"x\",\"assets\":[{\"name\":\"MavLlama-v1.2.0-Mavericks.zip\",\"browser_download_url\":\"https://example.com/d.zip\",\"size\":100}]},"
+        @"  {\"tag_name\":\"v1.2.0-beta.1\",\"name\":\"Beta\",\"draft\":false,\"prerelease\":true,\"body\":\"beta\",\"assets\":[{\"name\":\"MavLlama-v1.2.0-beta.1-Mavericks.zip\",\"browser_download_url\":\"https://example.com/b.zip\",\"size\":100}]},"
+        @"  {\"tag_name\":\"v1.1.1-notes\",\"name\":\"Source Only\",\"draft\":false,\"prerelease\":false,\"body\":\"no zip\",\"assets\":[]},"
+        @"  {\"tag_name\":\"v1.1.0\",\"name\":\"MavLlama 1.1\",\"draft\":false,\"prerelease\":false,\"body\":\"# Notes\",\"assets\":["
+        @"    {\"name\":\"MavLlama-v1.1.0-Mavericks.zip\",\"browser_download_url\":\"https://example.com/app.zip\",\"size\":8123456},"
+        @"    {\"name\":\"checksums.txt\",\"browser_download_url\":\"https://example.com/checksums.txt\",\"size\":128}"
+        @"  ]}"
+        @"]";
+    NSError *err = nil;
+    NSArray *releases = [UpdateManager parseReleasesFromData:[sampleJSON dataUsingEncoding:NSUTF8StringEncoding] error:&err];
+    assert(err == nil);
+    assert(releases.count == 3); // draft excluded
+
+    MavReleaseInfo *latest = [UpdateManager latestStableReleaseFromReleases:releases];
+    assert(latest != nil);
+    assert([latest.tagName isEqualToString:@"v1.1.0"]);
+    assert([latest.appZipAssetName isEqualToString:@"MavLlama-v1.1.0-Mavericks.zip"]);
+    assert([latest.checksumsDownloadURL isEqualToString:@"https://example.com/checksums.txt"]);
+
+    NSString *chkTxt = @"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  MavLlama-v1.0.0-Mavericks.zip\n"
+                       @"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef  MavLlama-v1.1.0-Mavericks.zip\n";
+    NSString *sha = [UpdateManager parseSHA256ForFilename:@"MavLlama-v1.1.0-Mavericks.zip" fromChecksumsText:chkTxt];
+    assert([sha isEqualToString:@"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]);
+
+    NSString *script = [UpdateManager updaterShellScriptContents];
+    assert([script rangeOfString:@"\"$TARGET_APP\""].location != NSNotFound);
+    assert([script rangeOfString:@"\"$STAGED_APP\""].location != NSNotFound);
+    assert([script rangeOfString:@"\"$BACKUP_APP\""].location != NSNotFound);
+    assert([script rangeOfString:@"mv \"$BACKUP_APP\" \"$TARGET_APP\""].location != NSNotFound);
+
+    NSLog(@"PASS: testUpdateManagerParsingAndVersions");
+}
+
 static void testCatalogAndFiltering(NSString *catalogPath) {
     NSData *data = [NSData dataWithContentsOfFile:catalogPath];
     assert(data != nil);
@@ -193,6 +236,7 @@ int main(int argc, const char *argv[]) {
         testInferenceNotices();
         testMediaClassifier();
         testMarkdownRenderer();
+        testUpdateManagerParsingAndVersions();
         testCatalogAndFiltering(catalogPath);
         NSLog(@"ALL MAVLLAMA CORE TESTS PASSED");
     }

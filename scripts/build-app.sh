@@ -131,6 +131,7 @@ done
   "$ROOT_DIR/src/EngineManager.m" \
   "$ROOT_DIR/src/ServerController.m" \
   "$ROOT_DIR/src/MarkdownRenderer.m" \
+  "$ROOT_DIR/src/UpdateManager.m" \
   "$ROOT_DIR/src/MainWindowController.m" \
   -o "$APP_DIR/Contents/MacOS/MavLlama"
 
