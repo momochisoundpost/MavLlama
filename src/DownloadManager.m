@@ -99,6 +99,24 @@
 }
 
 + (NSData *)fetchDataFromURL:(NSString *)urlString headers:(NSDictionary *)headers error:(NSError **)outError {
+    if (!urlString || urlString.length == 0) {
+        if (outError) {
+            *outError = [NSError errorWithDomain:@"MavLlamaDownload"
+                                            code:-1
+                                        userInfo:@{NSLocalizedDescriptionKey: @"Empty URL"}];
+        }
+        return nil;
+    }
+    NSString *lower = [[urlString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] lowercaseString];
+    if (![lower hasPrefix:@"http://"] && ![lower hasPrefix:@"https://"]) {
+        if (outError) {
+            *outError = [NSError errorWithDomain:@"MavLlamaDownload"
+                                            code:-1
+                                        userInfo:@{NSLocalizedDescriptionKey: @"Only http and https URLs are supported."}];
+        }
+        return nil;
+    }
+
     NSString *curl = [self resolvedCurlPath];
     NSString *ca = [self resolvedCABundlePath];
 
@@ -107,7 +125,7 @@
         [args addObject:@"--cacert"];
         [args addObject:ca];
     }
-    [args addObjectsFromArray:@[@"-A", @"MavLlama/1.1"]];
+    [args addObjectsFromArray:@[@"-A", @"MavLlama/1.1", @"--proto", @"=http,https", @"--proto-redir", @"=http,https", @"-g"]];
     if (headers) {
         for (NSString *key in headers) {
             id val = headers[key];
@@ -205,7 +223,7 @@
             ext = @"webp"; isVideo = NO;
         } else {
             NSUInteger prefixLen = MIN(len, (NSUInteger)256);
-            NSString *prefix = [[NSString alloc] initWithBytes:b length:prefixLen encoding:NSUTF8StringEncoding];
+            NSString *prefix = [[NSString alloc] initWithBytes:b length:prefixLen encoding:NSISOLatin1StringEncoding];
             NSString *low = [[prefix lowercaseString] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
             if (low) {
                 if ([low rangeOfString:@"<html"].location != NSNotFound || [low rangeOfString:@"<!doctype html"].location != NSNotFound) {
@@ -298,6 +316,9 @@
     }
     [args addObjectsFromArray:@[
         @"-A", @"MavLlama/1.1",
+        @"--proto", @"=http,https",
+        @"--proto-redir", @"=http,https",
+        @"-g",
         @"-fsSL",
         @"--max-time", @"30",
         @"--retry", @"1",
@@ -383,6 +404,12 @@
                label:(NSString *)label
             progress:(MavDownloadProgressBlock)progressBlock
           completion:(MavDownloadCompletionBlock)completionBlock {
+    if (!urlString || urlString.length == 0 || !partPath || !destPath) {
+        if (completionBlock) {
+            completionBlock(NO, @"Invalid download URL or destination path.");
+        }
+        return;
+    }
     if (self.isDownloading) {
         if (completionBlock) {
             completionBlock(NO, @"Another download is already running.");

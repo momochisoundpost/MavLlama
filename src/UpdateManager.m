@@ -37,8 +37,10 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
 }
 
 @interface UpdateManager ()
+@property (atomic, assign, readwrite) BOOL isInstalling;
 @property (nonatomic, strong) dispatch_queue_t workerQueue;
-@property (nonatomic, copy) NSString *activeRenderToken;
+@property (nonatomic, strong) dispatch_queue_t mediaQueue;
+@property (atomic, copy) NSString *activeRenderToken;
 @end
 
 @implementation UpdateManager
@@ -47,6 +49,7 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
     self = [super init];
     if (self) {
         _workerQueue = dispatch_queue_create("com.momochisoundpost.MavLlama.updater", DISPATCH_QUEUE_SERIAL);
+        _mediaQueue = dispatch_queue_create("com.momochisoundpost.MavLlama.mediacache", DISPATCH_QUEUE_SERIAL);
     }
     return self;
 }
@@ -241,6 +244,7 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
         @"    exit 0\n"
         @"  else\n"
         @"    echo \"[MavLlama Updater] Failed moving staged app; restoring backup...\"\n"
+        @"    rm -rf \"$TARGET_APP\"\n"
         @"    mv \"$BACKUP_APP\" \"$TARGET_APP\"\n"
         @"  fi\n"
         @"fi\n"
@@ -348,7 +352,7 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
 
     if (mediaURLs.count == 0) return;
 
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    dispatch_async(self.mediaQueue, ^{
         NSMutableDictionary *fetchedMap = [NSMutableDictionary dictionary];
         BOOL anyResolved = NO;
         for (NSString *u in mediaURLs) {
@@ -411,8 +415,8 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
         if (completion) completion(NO, @"Selected release does not contain a MavLlama .zip app bundle.");
         return;
     }
-    if (downloadManager.isDownloading) {
-        if (completion) completion(NO, @"Another download is currently running. Please wait or cancel it first.");
+    if (self.isInstalling || downloadManager.isDownloading) {
+        if (completion) completion(NO, @"Another download or update installation is currently running.");
         return;
     }
 
@@ -437,13 +441,34 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
         return;
     }
 
+    self.isInstalling = YES;
+
     dispatch_async(self.workerQueue, ^{
         NSString *expectedSHA = nil;
         if (release.checksumsDownloadURL && release.checksumsDownloadURL.length > 0) {
-            NSData *chkData = [DownloadManager fetchDataFromURL:release.checksumsDownloadURL headers:nil error:nil];
-            if (chkData) {
-                NSString *chkText = [[NSString alloc] initWithData:chkData encoding:NSUTF8StringEncoding];
-                expectedSHA = [UpdateManager parseSHA256ForFilename:release.appZipAssetName fromChecksumsText:chkText];
+            NSError *chkErr = nil;
+            NSData *chkData = [DownloadManager fetchDataFromURL:release.checksumsDownloadURL headers:nil error:&chkErr];
+            if (!chkData) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.isInstalling = NO;
+                    if (completion) {
+                        completion(NO, [NSString stringWithFormat:@"Failed to download release checksums.txt (%@). Aborting update for safety.",
+                                        [chkErr localizedDescription] ?: @"network error"]);
+                    }
+                });
+                return;
+            }
+            NSString *chkText = [[NSString alloc] initWithData:chkData encoding:NSUTF8StringEncoding];
+            expectedSHA = [UpdateManager parseSHA256ForFilename:release.appZipAssetName fromChecksumsText:chkText];
+            if (!expectedSHA) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.isInstalling = NO;
+                    if (completion) {
+                        completion(NO, [NSString stringWithFormat:@"Release checksums.txt does not list SHA-256 for %@. Aborting update for safety.",
+                                        release.appZipAssetName ?: @"MavLlama.zip"]);
+                    }
+                });
+                return;
             }
         }
 
@@ -465,6 +490,7 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
                                 progress:progressBlock
                               completion:^(BOOL ok, NSString *errMsg) {
                 if (!ok) {
+                    self.isInstalling = NO;
                     if (completion) completion(NO, errMsg ?: @"Failed to download update zip.");
                     return;
                 }
@@ -492,6 +518,7 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
                     if (!dittoOK) {
                         [fm removeItemAtPath:stagingDir error:nil];
                         dispatch_async(dispatch_get_main_queue(), ^{
+                            self.isInstalling = NO;
                             if (completion) completion(NO, @"Failed to extract update archive with ditto.");
                         });
                         return;
@@ -504,6 +531,7 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
                     if (!stagedApp || !stagedPlist || ![fm isExecutableFileAtPath:stagedExe]) {
                         [fm removeItemAtPath:stagingDir error:nil];
                         dispatch_async(dispatch_get_main_queue(), ^{
+                            self.isInstalling = NO;
                             if (completion) completion(NO, @"Extracted archive does not contain a valid MavLlama.app bundle.");
                         });
                         return;
@@ -531,6 +559,7 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
                     if (!wroteScript) {
                         [fm removeItemAtPath:stagingDir error:nil];
                         dispatch_async(dispatch_get_main_queue(), ^{
+                            self.isInstalling = NO;
                             if (completion) completion(NO, [writeErr localizedDescription] ?: @"Failed to write updater helper script.");
                         });
                         return;
@@ -561,6 +590,7 @@ static void MavSplitVersionString(NSString *v, NSString **outBase, NSString **ou
                         @try {
                             [launcher launch];
                         } @catch (NSException *ex) {
+                            self.isInstalling = NO;
                             if (completion) completion(NO, [ex reason] ?: @"Failed to launch updater helper.");
                             return;
                         }

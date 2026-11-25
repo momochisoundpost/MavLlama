@@ -66,6 +66,9 @@ static void testInferenceNotices(void) {
     assert([macProHaswell rangeOfString:@"no OpenCL, no Metal"].location != NSNotFound);
     assert([macProHaswell rangeOfString:@"no AVX2"].location == NSNotFound);
 
+    NSString *macProNil = [HardwareInspector inferenceNoticeForIsMacPro:YES modelIdentifier:nil hasAVX2:NO];
+    assert([macProNil rangeOfString:@"Mac Pro"].location != NSNotFound);
+
     NSLog(@"PASS: testInferenceNotices");
 }
 
@@ -93,6 +96,27 @@ static void testMediaClassifier(void) {
     // Reject text/html error page even on media URL
     NSData *htmlData = [@"<html><body>404</body></html>" dataUsingEncoding:NSUTF8StringEncoding];
     assert([DownloadManager classifyMediaData:htmlData contentType:@"text/html; charset=utf-8" urlString:@"https://github.com/user-attachments/assets/bad" extension:&ext isVideo:&isVideo] == NO);
+
+    // Magic bytes for PNG, JPEG, WebP, <!DOCTYPE html>, and SVG under generic octet-stream
+    const uint8_t pngMagic[] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    assert([DownloadManager classifyMediaData:[NSData dataWithBytes:pngMagic length:sizeof(pngMagic)] contentType:@"application/octet-stream" urlString:@"https://example.com/a" extension:&ext isVideo:&isVideo]);
+    assert([ext isEqualToString:@"png"] && isVideo == NO);
+
+    const uint8_t jpgMagic[] = {0xFF, 0xD8, 0xFF, 0xE0};
+    assert([DownloadManager classifyMediaData:[NSData dataWithBytes:jpgMagic length:sizeof(jpgMagic)] contentType:@"application/octet-stream" urlString:@"https://example.com/b" extension:&ext isVideo:&isVideo]);
+    assert([ext isEqualToString:@"jpg"] && isVideo == NO);
+
+    const uint8_t webpMagic[] = {'R', 'I', 'F', 'F', 0x00, 0x00, 0x00, 0x00, 'W', 'E', 'B', 'P'};
+    assert([DownloadManager classifyMediaData:[NSData dataWithBytes:webpMagic length:sizeof(webpMagic)] contentType:@"application/octet-stream" urlString:@"https://example.com/c" extension:&ext isVideo:&isVideo]);
+    assert([ext isEqualToString:@"webp"] && isVideo == NO);
+
+    NSData *docTypeHTML = [@"<!DOCTYPE html><html>" dataUsingEncoding:NSISOLatin1StringEncoding];
+    assert([DownloadManager classifyMediaData:docTypeHTML contentType:@"application/octet-stream" urlString:@"https://example.com/d" extension:&ext isVideo:&isVideo] == NO);
+
+    // Reject nil or unsafe scheme in fetch/cache helpers
+    NSError *nilErr = nil;
+    assert([DownloadManager fetchDataFromURL:nil headers:nil error:&nilErr] == nil);
+    assert([DownloadManager cacheMediaURL:@"file:///etc/passwd" inDirectory:@"/tmp" maxBytes:1024 fileURL:NULL isVideo:NULL error:nil] == NO);
 
     NSLog(@"PASS: testMediaClassifier");
 }
@@ -143,6 +167,24 @@ static void testMarkdownRenderer(void) {
     assert([html rangeOfString:@"<script>"].location == NSNotFound);
     assert([html rangeOfString:@"&lt;script&gt;"].location != NSNotFound);
 
+    // Reject javascript: links, strip img event handlers, skip fenced code media extraction
+    NSString *unsafeMD =
+        @"[bad](javascript:alert(1))\n\n"
+        @"<img src=\"https://example.com/ok.png\" onerror=\"alert(1)\">\n\n"
+        @"```md\n![ignore](https://example.com/fenced.png)\n```\n";
+    NSArray *unsafeURLs = [MarkdownRenderer extractRemoteMediaURLsFromMarkdown:unsafeMD];
+    assert(unsafeURLs.count == 1);
+    assert([unsafeURLs containsObject:@"https://example.com/ok.png"]);
+    assert(![unsafeURLs containsObject:@"https://example.com/fenced.png"]);
+
+    MavResolvedMedia *okPng = [[MavResolvedMedia alloc] init];
+    okPng.fileURLString = @"file:///tmp/cache/ok.png";
+    okPng.isVideo = NO;
+    NSString *safeHTML = [MarkdownRenderer renderHTMLFromMarkdown:unsafeMD releaseTitle:@"t" releaseTag:@"v1" resolvedMedia:@{@"https://example.com/ok.png": okPng}];
+    assert([safeHTML rangeOfString:@"javascript:"].location == NSNotFound);
+    assert([safeHTML rangeOfString:@"onerror"].location == NSNotFound);
+    assert([safeHTML rangeOfString:@"file:///tmp/cache/ok.png"].location != NSNotFound);
+
     NSLog(@"PASS: testMarkdownRenderer");
 }
 
@@ -179,11 +221,20 @@ static void testUpdateManagerParsingAndVersions(void) {
     NSString *sha = [UpdateManager parseSHA256ForFilename:@"MavLlama-v1.1.0-Mavericks.zip" fromChecksumsText:chkTxt];
     assert([sha isEqualToString:@"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]);
 
+    assert([UpdateManager compareVersion:@"V1.1" toVersion:@"1.1.0"] == NSOrderedSame);
+    assert([UpdateManager compareVersion:@"v1.1.0-rc.10" toVersion:@"v1.1.0-rc.2"] == NSOrderedDescending);
+    assert([UpdateManager compareVersion:@"v1.1.0-beta.1" toVersion:@"v1.1.0-alpha.9"] == NSOrderedDescending);
+
     NSString *script = [UpdateManager updaterShellScriptContents];
     assert([script rangeOfString:@"\"$TARGET_APP\""].location != NSNotFound);
     assert([script rangeOfString:@"\"$STAGED_APP\""].location != NSNotFound);
     assert([script rangeOfString:@"\"$BACKUP_APP\""].location != NSNotFound);
+    assert([script rangeOfString:@"rm -rf \"$TARGET_APP\""].location != NSNotFound);
     assert([script rangeOfString:@"mv \"$BACKUP_APP\" \"$TARGET_APP\""].location != NSNotFound);
+
+    // Check isInstalling starts NO
+    UpdateManager *um = [[UpdateManager alloc] init];
+    assert(um.isInstalling == NO);
 
     NSLog(@"PASS: testUpdateManagerParsingAndVersions");
 }

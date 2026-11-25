@@ -18,6 +18,7 @@
 @end
 
 @interface UpdateManager : NSObject
+@property (atomic, assign, readonly) BOOL isInstalling;
 + (NSComparisonResult)compareVersion:(NSString *)v1 toVersion:(NSString *)v2;
 + (NSArray *)parseReleasesFromData:(NSData *)jsonData error:(NSError **)outError;
 + (MavReleaseInfo *)latestStableReleaseFromReleases:(NSArray *)releases;

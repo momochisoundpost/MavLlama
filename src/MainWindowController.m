@@ -402,6 +402,7 @@
     [v addSubview:self.viewOnGitHubBtn];
 
     NSBox *frameBox = [[NSBox alloc] initWithFrame:NSMakeRect(18, 64, 714, 330)];
+    [frameBox setTitlePosition:NSNoTitle];
     [frameBox setBoxType:NSBoxCustom];
     [frameBox setBorderType:NSLineBorder];
     [frameBox setBorderWidth:1.0];
@@ -409,7 +410,8 @@
     [frameBox setContentViewMargins:NSMakeSize(0, 0)];
     [frameBox setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
 
-    self.releaseWebView = [[WebView alloc] initWithFrame:NSMakeRect(1, 1, 712, 328)];
+    NSView *boxContent = [frameBox contentView];
+    self.releaseWebView = [[WebView alloc] initWithFrame:[boxContent bounds]];
     [self.releaseWebView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
     [self.releaseWebView setPolicyDelegate:self];
     [frameBox addSubview:self.releaseWebView];
@@ -423,7 +425,7 @@
     [self.updateProgress setAutoresizingMask:NSViewMaxXMargin | NSViewMaxYMargin];
     [v addSubview:self.updateProgress];
 
-    self.updateProgressLabel = [self makeLabel:NSMakeRect(326, 26, 175, 18) text:@"" bold:NO size:11.5];
+    self.updateProgressLabel = [self makeLabel:NSMakeRect(326, 26, 160, 18) text:@"" bold:NO size:11.5];
     [self.updateProgressLabel setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
     [v addSubview:self.updateProgressLabel];
 
@@ -1153,9 +1155,13 @@
     }];
 }
 
+- (void)dealloc {
+    [_releaseWebView setPolicyDelegate:nil];
+}
+
 - (void)refreshUpdatesControls {
     MavReleaseInfo *sel = self.selectedRelease;
-    BOOL dlActive = self.downloadManager.isDownloading;
+    BOOL dlActive = self.downloadManager.isDownloading || self.updateManager.isInstalling;
 
     [self.viewOnGitHubBtn setEnabled:(sel != nil && sel.htmlURL.length > 0)];
     [self.checkUpdatesBtn setEnabled:!self.isCheckingReleases];
@@ -1274,16 +1280,33 @@ decisionListener:(id<WebPolicyDecisionListener>)listener {
     NSInteger navType = [actionInformation[WebActionNavigationTypeKey] integerValue];
     NSURL *url = [request URL];
     NSString *scheme = [[url scheme] lowercaseString];
-    if (navType == WebNavigationTypeLinkClicked && ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) {
+    if (navType == WebNavigationTypeLinkClicked &&
+        ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"] || [scheme isEqualToString:@"mailto"])) {
         [[NSWorkspace sharedWorkspace] openURL:url];
         [listener ignore];
         return;
     }
-    if ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"]) {
+    if ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"] || [scheme isEqualToString:@"mailto"]) {
         [listener ignore];
         return;
     }
     [listener use];
+}
+
+- (void)webView:(WebView *)webView
+decidePolicyForNewWindowAction:(NSDictionary *)actionInformation
+        request:(NSURLRequest *)request
+   newFrameName:(NSString *)frameName
+decisionListener:(id<WebPolicyDecisionListener>)listener {
+    (void)webView;
+    (void)actionInformation;
+    (void)frameName;
+    NSURL *url = [request URL];
+    NSString *scheme = [[url scheme] lowercaseString];
+    if ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"] || [scheme isEqualToString:@"mailto"]) {
+        [[NSWorkspace sharedWorkspace] openURL:url];
+    }
+    [listener ignore];
 }
 
 #pragma mark - About Social Links
